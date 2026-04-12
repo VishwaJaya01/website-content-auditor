@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.models.jobs import JobStatus
@@ -30,6 +30,7 @@ def create_job(
     status: JobStatus,
     progress: float,
     cache_key: str | None,
+    request_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist a new job and return it as a dictionary."""
 
@@ -44,11 +45,12 @@ def create_job(
                 status,
                 progress,
                 cache_key,
+                request_config_json,
                 error_message,
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
             """,
             (
                 job_id,
@@ -57,6 +59,7 @@ def create_job(
                 status.value,
                 progress,
                 cache_key,
+                json.dumps(request_config or {}, sort_keys=True),
                 now,
                 now,
             ),
@@ -80,6 +83,7 @@ def get_job(db_path: str, job_id: str) -> dict[str, Any] | None:
                 status,
                 progress,
                 cache_key,
+                request_config_json,
                 error_message,
                 created_at,
                 updated_at
@@ -188,3 +192,60 @@ def get_cache_entry(db_path: str, cache_key: str) -> dict[str, Any] | None:
             (cache_key,),
         ).fetchone()
     return _row_to_dict(row)
+
+
+def get_valid_cache_entry(db_path: str, cache_key: str) -> dict[str, Any] | None:
+    """Fetch a non-expired cache entry if one exists."""
+
+    cache_entry = get_cache_entry(db_path, cache_key)
+    if cache_entry is None:
+        return None
+
+    try:
+        expires_at = datetime.fromisoformat(cache_entry["expires_at"])
+    except (TypeError, ValueError):
+        return None
+    if expires_at <= _utc_now():
+        return None
+    return cache_entry
+
+
+def save_cache_entry(
+    db_path: str,
+    *,
+    cache_key: str,
+    normalized_url: str,
+    config_hash: str,
+    job_id: str,
+    ttl_hours: int,
+) -> dict[str, Any]:
+    """Create or replace a final-result cache entry."""
+
+    now = _utc_now()
+    expires_at = now + timedelta(hours=ttl_hours)
+    with get_connection(db_path) as connection:
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO cache_entries (
+                cache_key,
+                normalized_url,
+                config_hash,
+                job_id,
+                expires_at,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                cache_key,
+                normalized_url,
+                config_hash,
+                job_id,
+                expires_at.isoformat(),
+                now.isoformat(),
+            ),
+        )
+    cache_entry = get_cache_entry(db_path, cache_key)
+    if cache_entry is None:
+        raise RuntimeError(f"Failed to save cache entry {cache_key}")
+    return cache_entry

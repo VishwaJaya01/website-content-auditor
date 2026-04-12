@@ -1,10 +1,13 @@
 """Pydantic models used by the API, jobs, and audit pipeline."""
 
 from app.models.analysis import (
+    ChunkAnalysisResult,
     ChunkEmbedding,
     ContentChunk,
     DuplicateContentFinding,
     HeuristicSignal,
+    ImprovementRecommendation,
+    MissingContentRecommendation,
     PageHeuristicSummary,
     SignalSeverity,
     SimilarChunkMatch,
@@ -33,6 +36,7 @@ __all__ = [
     "AnalyzeAcceptedResponse",
     "AnalyzeRequest",
     "ApiErrorResponse",
+    "ChunkAnalysisResult",
     "ChunkEmbedding",
     "ContentChunk",
     "CrawlConfig",
@@ -45,9 +49,11 @@ __all__ = [
     "FetchResult",
     "FetchStatus",
     "HeuristicSignal",
+    "ImprovementRecommendation",
     "JobResponse",
     "JobStatus",
     "LinkFilterResult",
+    "MissingContentRecommendation",
     "PageHeuristicSummary",
     "PageResultSkeleton",
     "PageSection",

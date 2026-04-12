@@ -1,11 +1,33 @@
-"""Base interfaces for future LLM providers."""
+"""Thin local-first LLM provider interface."""
 
-from typing import Protocol
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Protocol
+
+
+class LLMProviderError(RuntimeError):
+    """Raised when a provider cannot return usable generated text."""
+
+
+@dataclass(frozen=True)
+class LLMGenerateResponse:
+    """Text returned by an LLM provider with light metadata."""
+
+    text: str
+    model: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 class LLMProvider(Protocol):
-    """Minimal protocol for structured text generation providers."""
+    """Minimal protocol for text generation providers."""
 
-    async def generate_json(self, prompt: str) -> dict[str, object]:
-        """Generate a JSON-like response for a prompt."""
+    def generate(
+        self,
+        prompt: str,
+        *,
+        temperature: float = 0.1,
+        response_format: str | None = "json",
+    ) -> LLMGenerateResponse:
+        """Generate text for a prompt."""
 

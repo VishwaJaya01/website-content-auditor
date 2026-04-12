@@ -29,6 +29,7 @@ def init_db(db_path: str) -> None:
                 status TEXT NOT NULL,
                 progress REAL NOT NULL DEFAULT 0,
                 cache_key TEXT,
+                request_config_json TEXT,
                 error_message TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -50,4 +51,27 @@ def init_db(db_path: str) -> None:
                 created_at TEXT NOT NULL
             );
             """
+        )
+        _ensure_column(
+            connection,
+            table_name="jobs",
+            column_name="request_config_json",
+            column_definition="TEXT",
+        )
+
+
+def _ensure_column(
+    connection: sqlite3.Connection,
+    *,
+    table_name: str,
+    column_name: str,
+    column_definition: str,
+) -> None:
+    columns = {
+        row["name"]
+        for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+    if column_name not in columns:
+        connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
         )

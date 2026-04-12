@@ -1,6 +1,7 @@
 """Analysis package notes for deferred integrations.
 
 Section-aware chunking, first-pass heuristics, local embedding support, semantic
-retrieval, and cross-page duplicate detection now exist. Remaining analysis work
-includes prompt orchestration, LLM calls, JSON repair, and result aggregation.
+retrieval, cross-page duplicate detection, prompt construction, Ollama-backed
+chunk analysis, and JSON repair now exist. Remaining analysis work includes
+final result aggregation and full pipeline orchestration.
 """

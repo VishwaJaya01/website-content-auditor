@@ -1,12 +1,13 @@
 """Initial HTTP routes for the scaffold API."""
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, BackgroundTasks, status
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.jobs.manager import JobManager
+from app.jobs.runner import run_analysis_job
 from app.models.api import AnalyzeAcceptedResponse, AnalyzeRequest, ApiErrorResponse
-from app.models.jobs import JobResponse
+from app.models.jobs import JobResponse, JobStatus
 from app.models.results import AuditResultResponse
 from app.storage import repositories
 from app.storage.database import get_connection
@@ -47,11 +48,25 @@ def health() -> dict[str, object]:
     response_model=AnalyzeAcceptedResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
-def analyze(request: AnalyzeRequest) -> AnalyzeAcceptedResponse:
-    """Accept an analysis request and create a queued scaffold job."""
+def analyze(
+    request: AnalyzeRequest,
+    background_tasks: BackgroundTasks,
+) -> AnalyzeAcceptedResponse:
+    """Accept an analysis request and schedule the audit pipeline."""
 
     manager = JobManager()
+    cached_job = manager.get_cached_job(request)
+    if cached_job is not None:
+        return AnalyzeAcceptedResponse(
+            job_id=cached_job.job_id,
+            status=cached_job.status,
+            cached=True,
+            status_url=f"/jobs/{cached_job.job_id}",
+            result_url=f"/results/{cached_job.job_id}",
+        )
+
     job = manager.create_job(request)
+    background_tasks.add_task(run_analysis_job, job.job_id)
     return AnalyzeAcceptedResponse(
         job_id=job.job_id,
         status=job.status,
@@ -102,17 +117,24 @@ def get_result(job_id: str) -> AuditResultResponse | JSONResponse:
     if stored_result is not None:
         return AuditResultResponse.model_validate(stored_result["result"])
 
-    return AuditResultResponse(
+    if job.status == JobStatus.FAILED:
+        return _error_response(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "job_failed",
+            job.error_message or "Audit job failed before producing a result.",
+        )
+
+    response = AuditResultResponse(
         job_id=job.job_id,
         status=job.status,
         message=(
-            "Result generation is not implemented yet. The scaffold currently "
-            "creates jobs but does not crawl or analyze websites."
+            "Audit is still running. Check this endpoint again after the job "
+            "has completed."
         ),
         pages=[],
-        warnings=[
-            "Crawler, extraction, LLM analysis, and report generation are deferred "
-            "to later implementation steps."
-        ],
+        warnings=[],
     )
-
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content=response.model_dump(mode="json"),
+    )
