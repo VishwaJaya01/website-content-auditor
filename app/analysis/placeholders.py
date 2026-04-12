@@ -1,6 +1,6 @@
-"""Analysis placeholders for the initial scaffold.
+"""Analysis package notes for deferred integrations.
 
-No chunking, heuristic scoring, embeddings, prompt orchestration, or LLM calls
-are implemented in this foundation step.
+Section-aware chunking, first-pass heuristics, local embedding support, semantic
+retrieval, and cross-page duplicate detection now exist. Remaining analysis work
+includes prompt orchestration, LLM calls, JSON repair, and result aggregation.
 """
-

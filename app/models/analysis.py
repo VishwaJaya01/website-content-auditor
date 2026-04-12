@@ -15,6 +15,13 @@ class SignalSeverity(StrEnum):
     HIGH = "high"
 
 
+class SimilarityFindingType(StrEnum):
+    """Types of similarity findings produced before LLM analysis."""
+
+    NEAR_DUPLICATE = "near_duplicate"
+    CONTENT_OVERLAP = "content_overlap"
+
+
 class ContentChunk(BaseModel):
     """Section-aware chunk prepared for later embedding or LLM analysis."""
 
@@ -31,6 +38,39 @@ class ContentChunk(BaseModel):
     token_estimate: int = Field(ge=0)
     text_length: int = Field(ge=0)
     warnings: list[str] = Field(default_factory=list)
+
+
+class ChunkEmbedding(BaseModel):
+    """Embedding vector and metadata for a content chunk."""
+
+    chunk_id: str
+    page_url: str
+    section_id: str
+    vector: list[float]
+    text_length: int = Field(ge=0)
+    token_estimate: int = Field(ge=0)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SimilarChunkMatch(BaseModel):
+    """Structured similarity result between two chunks."""
+
+    query_chunk: ContentChunk
+    matched_chunk: ContentChunk
+    similarity_score: float = Field(ge=-1.0, le=1.0)
+    cross_page: bool
+
+
+class DuplicateContentFinding(BaseModel):
+    """Potential duplicate or overlapping content across chunks."""
+
+    finding_type: SimilarityFindingType
+    source_chunk: ContentChunk
+    matched_chunk: ContentChunk
+    similarity_score: float = Field(ge=-1.0, le=1.0)
+    message: str
+    evidence_snippet: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class HeuristicSignal(BaseModel):
@@ -55,4 +95,3 @@ class PageHeuristicSummary(BaseModel):
     signals: list[HeuristicSignal] = Field(default_factory=list)
     signal_counts: dict[str, int] = Field(default_factory=dict)
     severity_counts: dict[SignalSeverity, int] = Field(default_factory=dict)
-

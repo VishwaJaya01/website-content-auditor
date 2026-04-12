@@ -1,10 +1,14 @@
 """Pydantic models used by the API, jobs, and audit pipeline."""
 
 from app.models.analysis import (
+    ChunkEmbedding,
     ContentChunk,
+    DuplicateContentFinding,
     HeuristicSignal,
     PageHeuristicSummary,
     SignalSeverity,
+    SimilarChunkMatch,
+    SimilarityFindingType,
 )
 from app.models.api import AnalyzeAcceptedResponse, AnalyzeRequest, ApiErrorResponse
 from app.models.crawl import (
@@ -29,11 +33,13 @@ __all__ = [
     "AnalyzeAcceptedResponse",
     "AnalyzeRequest",
     "ApiErrorResponse",
+    "ChunkEmbedding",
     "ContentChunk",
     "CrawlConfig",
     "CrawlResult",
     "CrawlWarning",
     "DiscoveredUrl",
+    "DuplicateContentFinding",
     "ExtractedPage",
     "AuditResultResponse",
     "FetchResult",
@@ -47,4 +53,6 @@ __all__ = [
     "PageSection",
     "RecommendationPlaceholder",
     "SignalSeverity",
+    "SimilarChunkMatch",
+    "SimilarityFindingType",
 ]
