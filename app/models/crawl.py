@@ -65,6 +65,33 @@ class FetchResult(BaseModel):
     elapsed_ms: float | None = None
 
 
+class PageSection(BaseModel):
+    """Heading-aware section extracted from a fetched HTML page."""
+
+    section_id: str
+    heading_path: list[str] = Field(default_factory=list)
+    heading_level: int | None = Field(default=None, ge=1, le=4)
+    heading_text: str | None = None
+    text: str
+    order: int = Field(ge=0)
+    source_selector: str | None = None
+
+
+class ExtractedPage(BaseModel):
+    """Structured visible content extracted from a fetched HTML page."""
+
+    url: str
+    final_url: str | None = None
+    canonical_url: str | None = None
+    title: str | None = None
+    h1: str | None = None
+    status_code: int | None = None
+    content_type: str | None = None
+    text_char_count: int = Field(default=0, ge=0)
+    sections: list[PageSection] = Field(default_factory=list)
+    warnings: list[CrawlWarning] = Field(default_factory=list)
+
+
 class CrawlResult(BaseModel):
     """Result of same-domain discovery before content extraction."""
 
@@ -73,4 +100,3 @@ class CrawlResult(BaseModel):
     discovered_urls: list[DiscoveredUrl] = Field(default_factory=list)
     fetch_results: list[FetchResult] = Field(default_factory=list)
     warnings: list[CrawlWarning] = Field(default_factory=list)
-

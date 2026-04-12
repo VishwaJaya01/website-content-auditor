@@ -1,6 +1,6 @@
-"""Crawler placeholders for the initial scaffold.
+"""Crawler package notes for deferred integrations.
 
-Real crawling, extraction, boilerplate removal, and page prioritization are
-intentionally deferred to later implementation steps.
+URL discovery, fetching, and visible text extraction now exist. Remaining
+crawler work includes robots/sitemap support, optional Playwright fallback, and
+integration with the background analysis job flow.
 """
-
