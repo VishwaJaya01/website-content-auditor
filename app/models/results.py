@@ -89,9 +89,10 @@ class AuditResultResponse(BaseModel):
     input_url: str | None = None
     normalized_url: str | None = None
     generated_at: datetime | None = None
+    html_report_path: str | None = None
+    html_report_url: str | None = None
     summary: AuditSummary = Field(default_factory=AuditSummary)
     top_priorities: list[dict[str, Any]] = Field(default_factory=list)
     pages: list[PageAuditResult] = Field(default_factory=list)
     failed_pages: list[FailedPageRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
-

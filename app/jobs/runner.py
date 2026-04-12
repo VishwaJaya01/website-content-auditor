@@ -29,6 +29,7 @@ from app.models.crawl import CrawlResult, ExtractedPage
 from app.models.jobs import JobStatus
 from app.models.results import AuditResultResponse, FailedPageRecord
 from app.providers.ollama import OllamaProvider
+from app.reports.html_report import write_html_report
 from app.storage import repositories
 
 
@@ -154,6 +155,7 @@ class AuditPipelineRunner:
                 failed_pages=failed_pages,
                 warnings=warnings,
             )
+            self._maybe_write_html_report(result, request_config)
             repositories.save_audit_result(
                 self.settings.sqlite_database_path,
                 job_id=job_id,
@@ -311,6 +313,28 @@ class AuditPipelineRunner:
                 )
             )
         return results
+
+    def _maybe_write_html_report(
+        self,
+        result: AuditResultResponse,
+        request_config: dict[str, Any],
+    ) -> None:
+        should_generate = bool(
+            request_config.get("include_html_report")
+            or request_config.get("enable_html_reports")
+            or self.settings.enable_html_reports
+        )
+        if not should_generate:
+            return
+
+        try:
+            report_output = write_html_report(result, self.settings.reports_directory)
+        except Exception as exc:
+            result.warnings.append(f"HTML report generation failed: {exc}")
+            return
+
+        result.html_report_path = str(report_output.path)
+        result.html_report_url = report_output.url
 
 
 def run_analysis_job(job_id: str) -> AuditResultResponse | None:

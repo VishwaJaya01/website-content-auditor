@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     default_max_depth: int = Field(default=2, ge=0)
     cache_ttl_hours: int = Field(default=24, ge=1)
     enable_playwright_fallback: bool = False
+    enable_html_reports: bool = True
     reports_directory: str = "reports"
 
     model_config = SettingsConfigDict(

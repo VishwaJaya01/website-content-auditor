@@ -1,5 +1,4 @@
-"""Report generation placeholders for the initial scaffold.
+"""Compatibility module for earlier scaffold imports.
 
-Static HTML rendering will be added after crawl and analysis outputs stabilize.
+Report generation now lives in :mod:`app.reports.html_report`.
 """
-

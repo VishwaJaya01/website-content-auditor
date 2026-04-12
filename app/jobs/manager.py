@@ -170,6 +170,7 @@ class JobManager:
                 else self.settings.enable_playwright_fallback
             ),
             "include_html_report": request.include_html_report,
+            "enable_html_reports": self.settings.enable_html_reports,
             "ollama_model": self.settings.ollama_model,
             "embedding_model": self.settings.embedding_model,
             "pipeline_version": "pipeline-v1",

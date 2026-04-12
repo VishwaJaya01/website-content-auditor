@@ -131,6 +131,7 @@ def _runner(
     init_db(db_path)
     manager = JobManager()
     manager.settings.sqlite_database_path = db_path
+    manager.settings.reports_directory = str(tmp_path / "reports")
     manager.db_path = db_path
     job = manager.create_job(_request())
     runner = AuditPipelineRunner(
@@ -157,6 +158,8 @@ def test_runner_completes_and_persists_result(tmp_path):
     assert cached_job is not None
     assert cached_job.job_id == job_id
     assert result.summary.pages_analyzed == 1
+    assert result.html_report_path
+    assert result.html_report_url == f"/reports/{job_id}"
     assert result.pages[0].improvement_recommendations
 
 

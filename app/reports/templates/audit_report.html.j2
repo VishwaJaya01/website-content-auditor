@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Website Content Auditor Report</title>
+  <style>
+    :root {
+      --bg: #f7f9fb;
+      --surface: #ffffff;
+      --text: #20242a;
+      --muted: #5d6673;
+      --border: #d9e0e8;
+      --accent: #126c58;
+      --accent-soft: #e4f4ef;
+      --warn: #9b5d00;
+      --warn-soft: #fff3d8;
+      --danger: #9f2d2d;
+      --danger-soft: #ffe6e6;
+      --info-soft: #edf3ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    a {
+      color: #0a6252;
+      overflow-wrap: anywhere;
+    }
+
+    .hero,
+    .section,
+    .page {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .meta-grid,
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 1.45rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: var(--info-soft);
+      color: #24405f;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge.high {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .badge.medium {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .badge.low,
+    .badge.info {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .list {
+      display: grid;
+      gap: 12px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .item {
+      border-left: 4px solid var(--border);
+      padding: 12px 14px;
+      background: #fbfcfd;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .item.priority {
+      border-left-color: var(--accent);
+    }
+
+    .item.warning {
+      border-left-color: var(--warn);
+    }
+
+    .recommendation-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .page-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .evidence {
+      color: var(--muted);
+      font-style: italic;
+      margin-top: 8px;
+    }
+
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      color: var(--muted);
+      background: #fbfcfd;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 18px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <span class="badge {{ result.status.value }}">Status: {{ result.status.value }}</span>
+      <h1>Website Content Auditor Report</h1>
+      <p class="muted">{{ result.message }}</p>
+      <div class="meta-grid">
+        <div class="metric">
+          <span class="muted">Input URL</span>
+          <strong style="font-size: 1rem;"><a href="{{ result.input_url }}">{{ result.input_url or "Not recorded" }}</a></strong>
+        </div>
+        <div class="metric">
+          <span class="muted">Normalized URL</span>
+          <strong style="font-size: 1rem;"><a href="{{ result.normalized_url }}">{{ result.normalized_url or "Not recorded" }}</a></strong>
+        </div>
+        <div class="metric">
+          <span class="muted">Generated</span>
+          <strong style="font-size: 1rem;">
+            {% if result.generated_at %}{{ result.generated_at.strftime("%Y-%m-%d %H:%M UTC") }}{% else %}Not recorded{% endif %}
+          </strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Site Summary</h2>
+      <div class="summary-grid">
+        <div class="metric"><span class="muted">Pages Analyzed</span><strong>{{ result.summary.pages_analyzed }}</strong></div>
+        <div class="metric"><span class="muted">Pages Failed</span><strong>{{ result.summary.pages_failed }}</strong></div>
+        <div class="metric"><span class="muted">Chunks Analyzed</span><strong>{{ result.summary.chunks_analyzed }}</strong></div>
+        <div class="metric"><span class="muted">Improvements</span><strong>{{ result.summary.improvements_count }}</strong></div>
+        <div class="metric"><span class="muted">Missing Content</span><strong>{{ result.summary.missing_content_count }}</strong></div>
+        <div class="metric"><span class="muted">Duplicate Findings</span><strong>{{ result.summary.duplicate_findings_count }}</strong></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Top Priorities</h2>
+      {% if result.top_priorities %}
+      <ul class="list">
+        {% for priority in result.top_priorities %}
+        <li class="item priority">
+          <div class="recommendation-meta">
+            <span class="badge">{{ priority.get("type", "priority") }}</span>
+            {% if priority.get("severity") %}<span class="badge {{ priority.get("severity") }}">{{ priority.get("severity") }}</span>{% endif %}
+            {% if priority.get("priority") %}<span class="badge {{ priority.get("priority") }}">{{ priority.get("priority") }}</span>{% endif %}
+            {% if priority.get("confidence") is not none %}<span class="badge">Confidence {{ "%.2f"|format(priority.get("confidence")) }}</span>{% endif %}
+          </div>
+          <strong>{{ priority.get("issue") or priority.get("missing_content") or "Priority item" }}</strong>
+          {% if priority.get("suggested_change") %}<p>{{ priority.get("suggested_change") }}</p>{% endif %}
+          {% if priority.get("suggestion") %}<p>{{ priority.get("suggestion") }}</p>{% endif %}
+          {% if priority.get("page_url") %}<p class="muted">Page: <a href="{{ priority.get("page_url") }}">{{ priority.get("page_url") }}</a></p>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty">No high-priority items were produced.</div>
+      {% endif %}
+    </section>
+
+    {% if result.warnings or result.failed_pages %}
+    <section class="section">
+      <h2>Warnings And Partial Failures</h2>
+      <ul class="list">
+        {% for warning in result.warnings %}
+        <li class="item warning">{{ warning }}</li>
+        {% endfor %}
+        {% for page in result.failed_pages %}
+        <li class="item warning">
+          <strong>{{ page.stage }} failure</strong>
+          <p>{{ page.reason }}</p>
+          <p class="muted"><a href="{{ page.url }}">{{ page.url }}</a></p>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <section class="section">
+      <h2>Page-Level Results</h2>
+      {% if result.pages %}
+      {% for page in result.pages %}
+      <article class="page">
+        <div class="page-header">
+          <div>
+            <h3>{{ page.title or page.url }}</h3>
+            <p class="muted"><a href="{{ page.url }}">{{ page.url }}</a></p>
+          </div>
+          <span class="badge">{{ page.page_type }}</span>
+        </div>
+        <p>{{ page.summary }}</p>
+
+        <div class="summary-grid">
+          <div class="metric"><span class="muted">Sections</span><strong>{{ page.sections_analyzed }}</strong></div>
+          <div class="metric"><span class="muted">Chunks</span><strong>{{ page.chunks_analyzed }}</strong></div>
+          <div class="metric"><span class="muted">Improvements</span><strong>{{ page.improvement_recommendations|length }}</strong></div>
+          <div class="metric"><span class="muted">Missing Content</span><strong>{{ page.missing_content_recommendations|length }}</strong></div>
+        </div>
+
+        <div class="page-grid">
+          <section>
+            <h3>Improvement Recommendations</h3>
+            {% if page.improvement_recommendations %}
+            <ul class="list">
+              {% for rec in page.improvement_recommendations %}
+              <li class="item">
+                <div class="recommendation-meta">
+                  <span class="badge">{{ rec.category }}</span>
+                  <span class="badge {{ rec.severity.value }}">{{ rec.severity.value }}</span>
+                  <span class="badge">Confidence {{ "%.2f"|format(rec.confidence) }}</span>
+                </div>
+                <strong>{{ rec.issue }}</strong>
+                <p>{{ rec.suggested_change }}</p>
+                {% if rec.example_text %}<p><strong>Example:</strong> {{ rec.example_text }}</p>{% endif %}
+                <p class="muted">{{ rec.reason }}</p>
+                {% if rec.evidence_snippet %}<p class="evidence">Evidence: {{ rec.evidence_snippet }}</p>{% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty">No improvement recommendations for this page.</div>
+            {% endif %}
+          </section>
+
+          <section>
+            <h3>Missing Content Recommendations</h3>
+            {% if page.missing_content_recommendations %}
+            <ul class="list">
+              {% for rec in page.missing_content_recommendations %}
+              <li class="item">
+                <div class="recommendation-meta">
+                  <span class="badge {{ rec.priority.value }}">{{ rec.priority.value }}</span>
+                  <span class="badge">Confidence {{ "%.2f"|format(rec.confidence) }}</span>
+                </div>
+                <strong>{{ rec.missing_content }}</strong>
+                {% if rec.recommended_location %}<p><strong>Where:</strong> {{ rec.recommended_location }}</p>{% endif %}
+                <p>{{ rec.suggestion_or_outline }}</p>
+                <p class="muted">{{ rec.reason }}</p>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty">No missing-content recommendations for this page.</div>
+            {% endif %}
+          </section>
+
+          <section>
+            <h3>Duplicate And Overlap Warnings</h3>
+            {% if page.duplicate_warnings %}
+            <ul class="list">
+              {% for warning in page.duplicate_warnings %}
+              <li class="item warning">
+                <div class="recommendation-meta">
+                  <span class="badge medium">{{ warning.finding_type }}</span>
+                  <span class="badge">Similarity {{ "%.2f"|format(warning.similarity_score) }}</span>
+                </div>
+                <strong>{{ warning.message }}</strong>
+                <p class="muted">Matched page: <a href="{{ warning.matched_page_url }}">{{ warning.matched_page_url }}</a></p>
+                {% if warning.evidence_snippet %}<p class="evidence">Evidence: {{ warning.evidence_snippet }}</p>{% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty">No cross-page duplicate warnings for this page.</div>
+            {% endif %}
+          </section>
+
+          <section>
+            <h3>Heuristic Signal Summary</h3>
+            {% if page.heuristic_signal_summary %}
+            <ul class="list">
+              {% for signal_type, count in page.heuristic_signal_summary.items() %}
+              <li class="item"><strong>{{ signal_type }}</strong>: {{ count }}</li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty">No heuristic signals for this page.</div>
+            {% endif %}
+          </section>
+
+          {% if page.extraction_warnings or page.warnings %}
+          <section>
+            <h3>Page Warnings</h3>
+            <ul class="list">
+              {% for warning in page.extraction_warnings %}
+              <li class="item warning">{{ warning }}</li>
+              {% endfor %}
+              {% for warning in page.warnings %}
+              <li class="item warning">{{ warning }}</li>
+              {% endfor %}
+            </ul>
+          </section>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+      {% else %}
+      <div class="empty">No page-level results were produced.</div>
+      {% endif %}
+    </section>
+
+    <footer>
+      Generated by Website Content Auditor.
+    </footer>
+  </main>
+</body>
+</html>
