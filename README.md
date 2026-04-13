@@ -122,6 +122,7 @@ SQLITE_DATABASE_PATH="data/auditor.db"
 OLLAMA_BASE_URL="http://localhost:11434"
 OLLAMA_MODEL="gemma3:4b"
 EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+APP_DEBUG=false
 REQUEST_TIMEOUT_SECONDS=60
 DEFAULT_MAX_PAGES=8
 DEFAULT_MAX_DEPTH=2
@@ -136,8 +137,7 @@ For low-resource machines, you can set a smaller local model in your private
 `REQUEST_TIMEOUT_SECONDS` to `120` or `180` locally. Keep `.env.example` as the
 portable configuration template.
 
-`ENABLE_PLAYWRIGHT_FALLBACK` is present for future expansion, but Playwright is
-not implemented in this version.
+`ENABLE_PLAYWRIGHT_FALLBACK` is reserved for browser-based fetching support.
 
 ## API Usage
 
@@ -260,10 +260,11 @@ python -m compileall app tests
 
 ## Limitations
 
-- No Playwright fallback yet.
-- No competitor comparison mode.
-- No remote paid provider support.
-- No vector database or distributed queue.
+- Browser-rendered pages require future Playwright integration for best results.
+- Analysis is limited to the submitted site; competitor comparison is outside
+  the current scope.
+- Ollama is the supported LLM provider.
+- Similarity search runs in memory without a vector database.
 - LLM output quality depends on the local model and source page quality.
 - The current background execution uses FastAPI background tasks, which is
   appropriate for local/single-process use but not a production queue.

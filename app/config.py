@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Website Content Auditor"
     app_version: str = "0.1.0"
-    debug: bool = False
+    debug: bool = Field(default=False, validation_alias="APP_DEBUG")
     sqlite_database_path: str = "data/auditor.db"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma3:4b"

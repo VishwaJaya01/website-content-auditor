@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "website-content-auditor"
 version = "0.1.0"
-description = "Local-first FastAPI backend scaffold for an LLM-driven website content auditor."
+description = "Local-first FastAPI backend for an LLM-driven website content auditor."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

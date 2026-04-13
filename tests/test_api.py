@@ -56,3 +56,16 @@ def test_health_and_scaffold_job_flow(tmp_path, monkeypatch):
         assert stored_result_response.json()["status"] == "completed"
 
     get_settings.cache_clear()
+
+
+def test_analyze_rejects_invalid_url(tmp_path, monkeypatch):
+    monkeypatch.setenv("SQLITE_DATABASE_PATH", str(tmp_path / "auditor.db"))
+    get_settings.cache_clear()
+
+    app = create_app()
+    with TestClient(app) as client:
+        response = client.post("/analyze", json={"url": "not-a-url"})
+
+    assert response.status_code == 422
+
+    get_settings.cache_clear()
