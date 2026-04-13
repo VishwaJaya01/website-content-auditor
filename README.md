@@ -6,11 +6,11 @@ same-domain pages, extracts visible content, chunks it by section, runs
 deterministic heuristics and similarity checks, analyzes chunks with a local
 Ollama LLM, and returns structured recommendations grouped by page.
 
-The project is designed as an internship-quality backend submission: small
-enough to run locally, but structured like a production-minded content analysis
-system instead of a single "scrape text and prompt an LLM" script.
+The project is designed as a practical backend system: small enough to run
+locally, but structured like a production-minded content analysis service
+instead of a single "scrape text and prompt an LLM" script.
 
-## Demo Screenshots
+## Screenshots
 
 ### Health Check
 
@@ -138,7 +138,7 @@ For low-resource machines, you can set a smaller local model in your private
 `.env`, for example `OLLAMA_MODEL="qwen2.5:1.5b"` or
 `OLLAMA_MODEL="qwen2.5:0.5b"`. If Ollama is slow, increase
 `REQUEST_TIMEOUT_SECONDS` to `120` or `180` locally. Keep `.env.example` as the
-portable evaluator-facing template.
+portable configuration template.
 
 `ENABLE_PLAYWRIGHT_FALLBACK` is present for future expansion, but Playwright is
 not implemented in this version.
@@ -270,7 +270,7 @@ python -m compileall app tests
 - No vector database or distributed queue.
 - LLM output quality depends on the local model and source page quality.
 - The current background execution uses FastAPI background tasks, which is
-  appropriate for a local demo but not a production queue.
+  appropriate for local/single-process use but not a production queue.
 
 ## Future Improvements
 
