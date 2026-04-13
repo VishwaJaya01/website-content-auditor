@@ -6,10 +6,6 @@ same-domain pages, extracts visible content, chunks it by section, runs
 deterministic heuristics and similarity checks, analyzes chunks with a local
 Ollama LLM, and returns structured recommendations grouped by page.
 
-The project is designed as a practical backend system: small enough to run
-locally, but structured like a production-minded content analysis service
-instead of a single "scrape text and prompt an LLM" script.
-
 ## Screenshots
 
 ### Health Check
