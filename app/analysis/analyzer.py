@@ -12,6 +12,10 @@ from app.analysis.json_repair import (
     parse_json_from_text,
     repair_json_output,
 )
+from app.analysis.output_quality import (
+    clean_improvement_payload,
+    clean_missing_content_payload,
+)
 from app.analysis.prompts import build_chunk_analysis_prompt
 from app.models.analysis import (
     ChunkAnalysisResult,
@@ -133,23 +137,38 @@ def _enrich_payload(payload: Any, chunk: ContentChunk) -> dict[str, Any]:
     payload.setdefault("improvements", [])
     payload.setdefault("missing_content", [])
     payload.setdefault("warnings", [])
-
-    payload["improvements"] = [
-        _enrich_improvement(item, chunk)
-        for item in payload.get("improvements", [])
-        if isinstance(item, dict)
-    ]
-    payload["missing_content"] = [
-        _enrich_missing_content(item, chunk)
-        for item in payload.get("missing_content", [])
-        if isinstance(item, dict)
-    ]
     if not isinstance(payload["warnings"], list):
         payload["warnings"] = [str(payload["warnings"])]
+    warnings = [str(warning) for warning in payload["warnings"]]
+
+    improvements: list[dict[str, Any]] = []
+    for item in payload.get("improvements", []):
+        if not isinstance(item, dict):
+            continue
+        cleaned = _enrich_improvement(item, chunk, warnings=warnings)
+        if cleaned is not None:
+            improvements.append(cleaned)
+
+    missing_content: list[dict[str, Any]] = []
+    for item in payload.get("missing_content", []):
+        if not isinstance(item, dict):
+            continue
+        cleaned = _enrich_missing_content(item, chunk, warnings=warnings)
+        if cleaned is not None:
+            missing_content.append(cleaned)
+
+    payload["improvements"] = improvements
+    payload["missing_content"] = missing_content
+    payload["warnings"] = _dedupe_warnings(warnings)
     return payload
 
 
-def _enrich_improvement(item: dict[str, Any], chunk: ContentChunk) -> dict[str, Any]:
+def _enrich_improvement(
+    item: dict[str, Any],
+    chunk: ContentChunk,
+    *,
+    warnings: list[str],
+) -> dict[str, Any] | None:
     enriched = dict(item)
     enriched["page_url"] = chunk.page_url
     enriched["section_id"] = chunk.section_id
@@ -159,13 +178,15 @@ def _enrich_improvement(item: dict[str, Any], chunk: ContentChunk) -> dict[str, 
     enriched.setdefault("category", "other")
     enriched.setdefault("severity", SignalSeverity.MEDIUM.value)
     enriched.setdefault("confidence", 0.6)
-    return enriched
+    return clean_improvement_payload(enriched, warnings=warnings)
 
 
 def _enrich_missing_content(
     item: dict[str, Any],
     chunk: ContentChunk,
-) -> dict[str, Any]:
+    *,
+    warnings: list[str],
+) -> dict[str, Any] | None:
     enriched = dict(item)
     enriched["page_url"] = chunk.page_url
     enriched["section_id"] = chunk.section_id
@@ -176,7 +197,18 @@ def _enrich_missing_content(
         enriched["priority"] = enriched["severity"]
     enriched.setdefault("priority", SignalSeverity.MEDIUM.value)
     enriched.setdefault("confidence", 0.6)
-    return enriched
+    return clean_missing_content_payload(enriched, warnings=warnings)
+
+
+def _dedupe_warnings(warnings: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for warning in warnings:
+        if warning in seen:
+            continue
+        seen.add(warning)
+        deduped.append(warning)
+    return deduped
 
 
 def _failure_result(chunk: ContentChunk, warning: str) -> ChunkAnalysisResult:

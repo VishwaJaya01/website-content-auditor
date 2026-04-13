@@ -245,10 +245,12 @@
             {% if priority.get("severity") %}<span class="badge {{ priority.get("severity") }}">{{ priority.get("severity") }}</span>{% endif %}
             {% if priority.get("priority") %}<span class="badge {{ priority.get("priority") }}">{{ priority.get("priority") }}</span>{% endif %}
             {% if priority.get("confidence") is not none %}<span class="badge">Confidence {{ "%.2f"|format(priority.get("confidence")) }}</span>{% endif %}
+            {% if priority.get("priority_score") is not none %}<span class="badge">Score {{ "%.1f"|format(priority.get("priority_score")) }}</span>{% endif %}
           </div>
           <strong>{{ priority.get("issue") or priority.get("missing_content") or "Priority item" }}</strong>
           {% if priority.get("suggested_change") %}<p>{{ priority.get("suggested_change") }}</p>{% endif %}
           {% if priority.get("suggestion") %}<p>{{ priority.get("suggestion") }}</p>{% endif %}
+          {% if priority.get("why_prioritized") %}<p class="muted">{{ priority.get("why_prioritized") }}</p>{% endif %}
           {% if priority.get("page_url") %}<p class="muted">Page: <a href="{{ priority.get("page_url") }}">{{ priority.get("page_url") }}</a></p>{% endif %}
         </li>
         {% endfor %}

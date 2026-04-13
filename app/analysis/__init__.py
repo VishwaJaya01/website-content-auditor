@@ -17,6 +17,7 @@ from app.analysis.embeddings import (
 )
 from app.analysis.heuristics import analyze_page_heuristics
 from app.analysis.json_repair import parse_json_from_text
+from app.analysis.output_quality import normalize_recommendation_category
 from app.analysis.prompts import build_chunk_analysis_prompt
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "classify_page_type",
     "cosine_similarity",
     "detect_cross_page_duplicates",
+    "normalize_recommendation_category",
     "parse_json_from_text",
     "retrieve_similar_chunks",
 ]

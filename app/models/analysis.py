@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SignalSeverity(StrEnum):
@@ -13,6 +13,22 @@ class SignalSeverity(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+
+class RecommendationCategory(StrEnum):
+    """Allowed content recommendation categories."""
+
+    CLARITY = "clarity"
+    READABILITY = "readability"
+    GRAMMAR = "grammar"
+    TONE = "tone"
+    CTA = "cta"
+    STRUCTURE = "structure"
+    DUPLICATION = "duplication"
+    TRUST = "trust"
+    ENGAGEMENT = "engagement"
+    MISSING_CONTEXT = "missing_context"
+    OTHER = "other"
 
 
 class SimilarityFindingType(StrEnum):
@@ -76,7 +92,7 @@ class DuplicateContentFinding(BaseModel):
 class ImprovementRecommendation(BaseModel):
     """LLM-generated recommendation for improving existing content."""
 
-    category: str
+    category: RecommendationCategory
     page_url: str
     section_id: str | None = None
     section_path: list[str] = Field(default_factory=list)
@@ -87,6 +103,19 @@ class ImprovementRecommendation(BaseModel):
     severity: SignalSeverity
     confidence: float = Field(ge=0.0, le=1.0)
     evidence_snippet: str | None = None
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_legacy_category(cls, value: object) -> object:
+        """Keep older persisted results with noisy category strings loadable."""
+
+        if isinstance(value, RecommendationCategory):
+            return value
+        normalized = str(value or "").strip().lower()
+        try:
+            return RecommendationCategory(normalized)
+        except ValueError:
+            return RecommendationCategory.OTHER
 
 
 class MissingContentRecommendation(BaseModel):

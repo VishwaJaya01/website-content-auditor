@@ -49,6 +49,11 @@ def test_prompt_includes_schema_metadata_text_and_relevant_heuristics():
     assert "Return JSON only" in prompt
     assert '"improvements"' in prompt
     assert '"missing_content"' in prompt
+    assert "choose exactly one category" in prompt.lower()
+    assert "Never copy the full category list" in prompt
+    assert '"category": "clarity"' in prompt
+    assert '"page_type": "pricing"' in prompt
+    assert "Focus on plan clarity" in prompt
     assert "https://example.com/pricing" in prompt
     assert "Simple pricing" in prompt
     assert "missing_cta" in prompt

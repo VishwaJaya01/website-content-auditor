@@ -17,6 +17,7 @@ from app.analysis.heuristics import analyze_page_heuristics
 from app.config import Settings, get_settings
 from app.crawler.discovery import discover_site
 from app.crawler.extractor import extract_page
+from app.crawler.playwright_fetcher import PlaywrightHtmlFetcher
 from app.jobs.manager import JobManager
 from app.models.analysis import (
     ChunkAnalysisResult,
@@ -25,7 +26,7 @@ from app.models.analysis import (
     DuplicateContentFinding,
     HeuristicSignal,
 )
-from app.models.crawl import CrawlResult, ExtractedPage
+from app.models.crawl import CrawlResult, ExtractedPage, FetchResult
 from app.models.jobs import JobStatus
 from app.models.results import AuditResultResponse, FailedPageRecord
 from app.providers.ollama import OllamaProvider
@@ -54,6 +55,13 @@ class ChunkAnalysisProvider(Protocol):
         """Analyze one chunk."""
 
 
+class HtmlFetchProvider(Protocol):
+    """Small protocol for optional browser-backed fetchers."""
+
+    def fetch(self, url: str) -> FetchResult:
+        """Fetch one URL and return a structured result."""
+
+
 DiscoveryFunction = Callable[..., CrawlResult]
 
 
@@ -68,12 +76,14 @@ class AuditPipelineRunner:
         discovery_function: DiscoveryFunction = discover_site,
         embedding_provider: EmbeddingProvider | None = None,
         chunk_analyzer: ChunkAnalysisProvider | None = None,
+        playwright_fetcher: HtmlFetchProvider | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.manager = manager or JobManager(self.settings)
         self.discovery_function = discovery_function
         self.embedding_provider = embedding_provider
         self.chunk_analyzer = chunk_analyzer
+        self.playwright_fetcher = playwright_fetcher
 
     def run(self, job_id: str) -> AuditResultResponse | None:
         """Execute the complete audit pipeline for an existing job."""
@@ -92,8 +102,12 @@ class AuditPipelineRunner:
             warnings.extend(warning.message for warning in crawl_result.warnings)
             self.manager.update_job_status(job_id, JobStatus.RUNNING, progress=0.2)
 
-            pages, extraction_failures = self._extract_pages(crawl_result)
+            pages, extraction_failures, extraction_warnings = self._extract_pages(
+                crawl_result,
+                request_config,
+            )
             failed_pages.extend(extraction_failures)
+            warnings.extend(extraction_warnings)
             if not pages:
                 self.manager.mark_failed(
                     job_id,
@@ -199,45 +213,149 @@ class AuditPipelineRunner:
     def _extract_pages(
         self,
         crawl_result: CrawlResult,
-    ) -> tuple[list[ExtractedPage], list[FailedPageRecord]]:
+        request_config: dict[str, Any],
+    ) -> tuple[list[ExtractedPage], list[FailedPageRecord], list[str]]:
         pages: list[ExtractedPage] = []
         failed_pages: list[FailedPageRecord] = []
+        warnings: list[str] = []
+        fallback_enabled = self._playwright_fallback_enabled(request_config)
 
         for fetch_result in crawl_result.fetch_results:
-            if not fetch_result.ok:
-                failed_pages.append(
-                    FailedPageRecord(
-                        url=fetch_result.url,
-                        reason=fetch_result.error or fetch_result.status.value,
-                        stage="fetch",
-                    )
+            active_fetch = fetch_result
+            used_playwright = False
+            if not active_fetch.ok and fallback_enabled:
+                fallback_fetch, fallback_warning = self._fetch_with_playwright(
+                    active_fetch.url
                 )
+                if fallback_warning:
+                    warnings.append(fallback_warning)
+                if fallback_fetch is not None and fallback_fetch.ok:
+                    active_fetch = fallback_fetch
+                    used_playwright = True
+
+            page, failure = self._extract_fetch_result(active_fetch)
+            if page is None:
+                if fallback_enabled and not used_playwright:
+                    fallback_fetch, fallback_warning = self._fetch_with_playwright(
+                        active_fetch.final_url or active_fetch.url
+                    )
+                    if fallback_warning:
+                        warnings.append(fallback_warning)
+                    if fallback_fetch is not None and fallback_fetch.ok:
+                        fallback_page, fallback_failure = self._extract_fetch_result(
+                            fallback_fetch
+                        )
+                        if fallback_page is not None:
+                            warnings.append(
+                                "Playwright fallback recovered extractable content "
+                                f"for {active_fetch.url}."
+                            )
+                            pages.append(fallback_page)
+                            continue
+                        if fallback_failure is not None:
+                            failure = fallback_failure
+                if failure is not None:
+                    failed_pages.append(failure)
                 continue
 
-            try:
-                page = extract_page(fetch_result)
-            except Exception as exc:
-                failed_pages.append(
-                    FailedPageRecord(
-                        url=fetch_result.url,
-                        reason=f"Extraction failed: {exc}",
-                        stage="extraction",
-                    )
+            if (
+                fallback_enabled
+                and not used_playwright
+                and self._is_weak_extraction(page)
+            ):
+                fallback_fetch, fallback_warning = self._fetch_with_playwright(
+                    active_fetch.final_url or active_fetch.url
                 )
-                continue
+                if fallback_warning:
+                    warnings.append(fallback_warning)
+                if fallback_fetch is not None and fallback_fetch.ok:
+                    fallback_page, fallback_failure = self._extract_fetch_result(
+                        fallback_fetch
+                    )
+                    if fallback_page is not None and self._page_quality_score(
+                        fallback_page
+                    ) > self._page_quality_score(page):
+                        warnings.append(
+                            "Playwright fallback improved extraction for "
+                            f"{page.url}."
+                        )
+                        pages.append(fallback_page)
+                        continue
+                    if fallback_failure is not None and page.text_char_count <= 0:
+                        failed_pages.append(fallback_failure)
+                        continue
 
-            if page.text_char_count <= 0 or not page.sections:
-                failed_pages.append(
-                    FailedPageRecord(
-                        url=page.url,
-                        reason="No meaningful visible text was extracted.",
-                        stage="extraction",
-                    )
-                )
-                continue
             pages.append(page)
 
-        return pages, failed_pages
+        return pages, failed_pages, warnings
+
+    @staticmethod
+    def _extract_fetch_result(
+        fetch_result: FetchResult,
+    ) -> tuple[ExtractedPage | None, FailedPageRecord | None]:
+        if not fetch_result.ok:
+            return None, FailedPageRecord(
+                url=fetch_result.url,
+                reason=fetch_result.error or fetch_result.status.value,
+                stage="fetch",
+            )
+
+        try:
+            page = extract_page(fetch_result)
+        except Exception as exc:
+            return None, FailedPageRecord(
+                url=fetch_result.url,
+                reason=f"Extraction failed: {exc}",
+                stage="extraction",
+            )
+
+        if page.text_char_count <= 0 or not page.sections:
+            return None, FailedPageRecord(
+                url=page.url,
+                reason="No meaningful visible text was extracted.",
+                stage="extraction",
+            )
+        return page, None
+
+    def _fetch_with_playwright(
+        self,
+        url: str,
+    ) -> tuple[FetchResult | None, str | None]:
+        fetcher = self.playwright_fetcher or PlaywrightHtmlFetcher(
+            settings=self.settings
+        )
+        try:
+            fetch_result = fetcher.fetch(url)
+        except Exception as exc:
+            return None, f"Playwright fallback failed for {url}: {exc}"
+
+        if fetch_result.ok:
+            return fetch_result, None
+        return (
+            fetch_result,
+            (
+                "Playwright fallback could not fetch "
+                f"{url}: {fetch_result.error or fetch_result.status.value}"
+            ),
+        )
+
+    def _playwright_fallback_enabled(self, request_config: dict[str, Any]) -> bool:
+        return bool(
+            request_config.get("use_playwright_fallback")
+            or self.settings.enable_playwright_fallback
+        )
+
+    @staticmethod
+    def _is_weak_extraction(page: ExtractedPage) -> bool:
+        if not page.sections:
+            return True
+        if page.text_char_count < 300:
+            return True
+        return len(page.sections) <= 1 and page.text_char_count < 600
+
+    @staticmethod
+    def _page_quality_score(page: ExtractedPage) -> int:
+        return page.text_char_count + (len(page.sections) * 120)
 
     @staticmethod
     def _chunk_pages(pages: list[ExtractedPage]) -> list[ContentChunk]:

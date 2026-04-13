@@ -11,15 +11,15 @@ from app.models.crawl import FetchResult, FetchStatus
 
 DEFAULT_USER_AGENT = (
     "WebsiteContentAuditor/0.1 "
-    "(local internship project; respectful same-domain crawler)"
+    "(local content audit tool; respectful same-domain crawler)"
 )
 
 
 class HttpxHtmlFetcher:
     """Fetch HTML pages and return structured results.
 
-    The class is intentionally small and synchronous. A future Playwright
-    fallback can wrap or replace this same ``fetch`` contract.
+    The class is intentionally small and synchronous. The optional Playwright
+    fallback uses the same ``fetch`` contract.
     """
 
     def __init__(
@@ -163,4 +163,3 @@ def _is_html_response(content_type: str | None, body: str) -> bool:
 
 def _elapsed_ms(started_at: float) -> float:
     return round((perf_counter() - started_at) * 1000, 3)
-

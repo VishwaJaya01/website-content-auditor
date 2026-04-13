@@ -4,6 +4,7 @@ from app.analysis.aggregator import aggregate_audit_result, classify_page_type
 from app.models.analysis import (
     ChunkAnalysisResult,
     ContentChunk,
+    HeuristicSignal,
     ImprovementRecommendation,
     MissingContentRecommendation,
     SignalSeverity,
@@ -84,7 +85,16 @@ def test_aggregate_audit_result_groups_and_deduplicates_recommendations():
         normalized_url=page.url,
         pages=[page],
         chunks=[chunk],
-        heuristic_signals=[],
+        heuristic_signals=[
+            HeuristicSignal(
+                signal_type="missing_cta",
+                page_url=page.url,
+                section_id=chunk.section_id,
+                severity=SignalSeverity.MEDIUM,
+                confidence=0.74,
+                message="Important-looking page may lack a clear CTA.",
+            )
+        ],
         duplicate_findings=[],
         chunk_results=[
             ChunkAnalysisResult(
@@ -104,6 +114,13 @@ def test_aggregate_audit_result_groups_and_deduplicates_recommendations():
     assert result.pages[0].improvement_recommendations[0].confidence == 0.9
     assert result.pages[0].missing_content_recommendations[0].missing_content
     assert result.top_priorities
+    assert result.top_priorities[0]["priority_score"] > 0
+    assert result.top_priorities[0]["why_prioritized"]
+    assert any(
+        priority.get("category") == "cta"
+        and "supported by heuristic" in priority.get("why_prioritized", "")
+        for priority in result.top_priorities
+    )
 
 
 def test_classify_page_type_uses_url_title_and_h1():

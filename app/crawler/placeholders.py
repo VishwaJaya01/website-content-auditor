@@ -1,6 +1,6 @@
 """Crawler package notes for deferred integrations.
 
-URL discovery, fetching, and visible text extraction now exist. Remaining
-crawler work includes robots/sitemap support, optional Playwright fallback, and
-integration with the background analysis job flow.
+URL discovery, fetching, visible text extraction, and optional Playwright
+fallback now exist. Remaining crawler work includes robots/sitemap support and
+more extraction tuning for difficult consent-heavy pages.
 """

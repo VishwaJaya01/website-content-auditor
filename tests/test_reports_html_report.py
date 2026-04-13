@@ -47,6 +47,10 @@ def _sample_result(job_id: str = "job-123") -> AuditResultResponse:
                 "category": "clarity",
                 "severity": "medium",
                 "confidence": 0.82,
+                "priority_score": 66.8,
+                "why_prioritized": (
+                    "medium severity; 0.82 confidence; homepage page."
+                ),
                 "issue": "The homepage headline is vague.",
                 "suggested_change": "Name the audience and main value.",
             }
@@ -120,6 +124,8 @@ def test_render_html_report_contains_evaluator_sections():
     assert "Website Content Auditor Report" in html
     assert "Site Summary" in html
     assert "Top Priorities" in html
+    assert "Score 66.8" in html
+    assert "medium severity; 0.82 confidence; homepage page." in html
     assert "Improvement Recommendations" in html
     assert "Missing Content Recommendations" in html
     assert "The homepage headline is vague." in html

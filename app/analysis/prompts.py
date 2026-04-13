@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from urllib.parse import urlsplit
 
 from app.models.analysis import (
     ContentChunk,
     DuplicateContentFinding,
     HeuristicSignal,
+    RecommendationCategory,
     SimilarChunkMatch,
 )
 from app.utils.text import normalize_whitespace
@@ -18,6 +20,45 @@ MAX_CONTEXT_SNIPPET_CHARS = 420
 MAX_HEURISTIC_SIGNALS = 6
 MAX_SIMILAR_MATCHES = 3
 MAX_DUPLICATE_FINDINGS = 3
+ALLOWED_CATEGORIES = ", ".join(category.value for category in RecommendationCategory)
+PAGE_TYPE_GUIDANCE: dict[str, str] = {
+    "homepage": (
+        "Focus on value proposition clarity, first-screen trust, audience fit, "
+        "navigation clarity, and whether visitors have a clear next action."
+    ),
+    "pricing": (
+        "Focus on plan clarity, included features, objections, reassurance, "
+        "comparison details, and the next step after choosing a plan."
+    ),
+    "services_product": (
+        "Focus on benefits, proof, differentiation, process, objections, and "
+        "how clearly the product or service outcome is explained."
+    ),
+    "docs": (
+        "Focus on completeness, examples, step order, terminology clarity, "
+        "navigation cues, and whether readers can complete the task."
+    ),
+    "faq": (
+        "Focus on question coverage, direct answers, reassurance, and missing "
+        "objections that visitors are likely to have."
+    ),
+    "contact": (
+        "Focus on contact clarity, available channels, response expectations, "
+        "location or support cues, and reassurance before reaching out."
+    ),
+    "about": (
+        "Focus on credibility, mission, team or story detail, trust signals, "
+        "and why visitors should believe the organization."
+    ),
+    "blog": (
+        "Focus on headline clarity, article structure, evidence, freshness, "
+        "reader engagement, and useful next reads or actions."
+    ),
+    "generic": (
+        "Focus on clarity, usefulness, structure, trust, and actionability for "
+        "the specific page text provided."
+    ),
+}
 
 
 def build_chunk_analysis_prompt(
@@ -30,11 +71,13 @@ def build_chunk_analysis_prompt(
     """Build a compact, schema-first prompt for one content chunk."""
 
     relevant_signals = _relevant_heuristic_signals(chunk, heuristic_signals or [])
+    page_type = _classify_chunk_page_type(chunk)
     prompt_context = {
         "page": {
             "url": chunk.page_url,
             "title": chunk.page_title,
             "h1": chunk.page_h1,
+            "page_type": page_type,
         },
         "section": {
             "id": chunk.section_id,
@@ -72,8 +115,15 @@ def build_chunk_analysis_prompt(
         "specific issue and suggested change.\n"
         "- Do not invent facts about the company, users, results, pricing, or "
         "claims that are not supported by the provided text.\n"
+        "- For each improvement, choose exactly one category from: "
+        f"{ALLOWED_CATEGORIES}.\n"
+        "- Never copy the full category list into the category field.\n"
+        "- Do not recommend changes when the text is already clear and no "
+        "specific issue is present.\n"
         "- Use severity/priority values only from: info, low, medium, high.\n"
         "- Use confidence as a number from 0.0 to 1.0.\n\n"
+        "Page-type focus:\n"
+        f"{_page_type_guidance(page_type)}\n\n"
         "Required JSON schema:\n"
         "{\n"
         '  "chunk_id": "string",\n'
@@ -82,8 +132,7 @@ def build_chunk_analysis_prompt(
         '  "section_path": ["string"],\n'
         '  "improvements": [\n'
         "    {\n"
-        '      "category": '
-        '"clarity|grammar|tone|cta|structure|duplication|trust|engagement|other",\n'
+        '      "category": "clarity",\n'
         '      "page_url": "string",\n'
         '      "section_id": "string",\n'
         '      "section_path": ["string"],\n'
@@ -113,6 +162,18 @@ def build_chunk_analysis_prompt(
         "}\n\n"
         "If there are no useful findings, return empty arrays. Do not force a "
         "recommendation.\n\n"
+        "Valid example recommendation object:\n"
+        "{\n"
+        '  "category": "cta",\n'
+        '  "issue": "The section describes the offer but does not give a next step.",\n'
+        '  "suggested_change": '
+        '"Add a short CTA such as \\"Book a content review.\\"",\n'
+        '  "example_text": "Book a content review",\n'
+        '  "reason": "A clear next step helps interested visitors act.",\n'
+        '  "severity": "medium",\n'
+        '  "confidence": 0.78,\n'
+        '  "evidence_snippet": "the relevant source phrase"\n'
+        "}\n\n"
         "Input context JSON:\n"
         f"{json.dumps(prompt_context, ensure_ascii=True, indent=2)}"
     )
@@ -138,6 +199,55 @@ def build_json_repair_prompt(
         '"warnings": []}.\n\n'
         f"{json.dumps(context, ensure_ascii=True, indent=2)}"
     )
+
+
+def _classify_chunk_page_type(chunk: ContentChunk) -> str:
+    parsed = urlsplit(chunk.page_url)
+    path = parsed.path.strip("/").lower()
+    path_segments = {segment for segment in path.split("/") if segment}
+    fallback_haystack = " ".join(
+        value for value in [chunk.page_title, chunk.page_h1] if value
+    ).lower()
+
+    if path in {"", "home", "index"}:
+        return "homepage"
+    if "pricing" in path_segments or "plans" in path_segments:
+        return "pricing"
+    if "about" in path_segments or "team" in path_segments:
+        return "about"
+    if "contact" in path_segments:
+        return "contact"
+    if "faq" in path_segments:
+        return "faq"
+    if "docs" in path_segments or "documentation" in path_segments:
+        return "docs"
+    if path_segments.intersection({"services", "service", "products", "product"}):
+        return "services_product"
+    if "blog" in path_segments:
+        return "blog"
+
+    if "pricing" in fallback_haystack or "plans" in fallback_haystack:
+        return "pricing"
+    if "about" in fallback_haystack or "team" in fallback_haystack:
+        return "about"
+    if "contact" in fallback_haystack:
+        return "contact"
+    if "faq" in fallback_haystack:
+        return "faq"
+    if "docs" in fallback_haystack or "documentation" in fallback_haystack:
+        return "docs"
+    if any(
+        term in fallback_haystack
+        for term in ("services", "service", "products", "product")
+    ):
+        return "services_product"
+    if "blog" in fallback_haystack:
+        return "blog"
+    return "generic"
+
+
+def _page_type_guidance(page_type: str) -> str:
+    return PAGE_TYPE_GUIDANCE.get(page_type, PAGE_TYPE_GUIDANCE["generic"])
 
 
 def _relevant_heuristic_signals(

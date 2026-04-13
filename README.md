@@ -39,6 +39,7 @@ Each completed or partial audit can also be reviewed as a static browser report.
 
 - FastAPI JSON API with job-based analysis flow.
 - Same-domain URL normalization, filtering, prioritization, and HTML fetching.
+- Optional Playwright fallback for JavaScript-rendered or app-shell pages.
 - Boilerplate-aware visible text extraction with heading-aware sections.
 - Section-aware chunking for later LLM analysis.
 - Rule-based heuristic signals for thin content, weak CTAs, vague wording,
@@ -46,9 +47,12 @@ Each completed or partial audit can also be reviewed as a static browser report.
 - Local sentence-transformers embeddings for similarity retrieval and
   cross-page duplicate or overlap detection.
 - Local Ollama provider, defaulting to `gemma3:4b`.
+- Page-type-aware prompt focus for homepage, pricing, product/service, docs,
+  FAQ, contact, about, blog, and generic pages.
 - Strict Pydantic schemas for chunk-level LLM recommendations.
 - JSON parsing, extraction, and bounded repair for imperfect model output.
 - SQLite-backed jobs, results, and cache entries.
+- Priority scoring for the most important site-level findings.
 - Static HTML report generation for completed or partial audits.
 
 ## Architecture
@@ -72,11 +76,14 @@ Pipeline flow:
 
 1. `POST /analyze` validates the request and creates or reuses a job.
 2. The background runner checks cache, crawls same-domain pages, and fetches HTML.
+   If enabled, Playwright retries pages where normal HTML extraction is weak.
 3. Extracted pages are converted into heading-aware sections.
 4. Sections become analysis-ready chunks.
 5. Heuristics and embeddings produce supporting signals and duplicate findings.
-6. Ollama analyzes each chunk and returns structured recommendations.
-7. Aggregation deduplicates and groups findings by page.
+6. Ollama analyzes each chunk with page-type-aware prompt guidance and returns
+   structured recommendations.
+7. Aggregation deduplicates findings, groups them by page, and ranks top
+   priorities.
 8. The final JSON result is saved in SQLite.
 9. A static HTML report is generated when enabled or requested.
 
@@ -87,6 +94,7 @@ Pipeline flow:
 - `gemma3:4b` pulled in Ollama
 - Internet access the first time `sentence-transformers/all-MiniLM-L6-v2` is
   downloaded, unless the model is already cached locally
+- Optional: Playwright plus Chromium for browser-rendered fallback
 
 ## Setup
 
@@ -102,6 +110,13 @@ Install and prepare Ollama:
 ```bash
 ollama pull gemma3:4b
 ollama serve
+```
+
+Optional browser fallback for JavaScript-heavy sites:
+
+```bash
+pip install -e ".[browser]"
+playwright install chromium
 ```
 
 In another terminal, run the API:
@@ -127,6 +142,7 @@ REQUEST_TIMEOUT_SECONDS=60
 DEFAULT_MAX_PAGES=8
 DEFAULT_MAX_DEPTH=2
 CACHE_TTL_HOURS=24
+ENABLE_PLAYWRIGHT_FALLBACK=false
 ENABLE_HTML_REPORTS=true
 REPORTS_DIRECTORY="reports"
 ```
@@ -137,7 +153,9 @@ For low-resource machines, you can set a smaller local model in your private
 `REQUEST_TIMEOUT_SECONDS` to `120` or `180` locally. Keep `.env.example` as the
 portable configuration template.
 
-`ENABLE_PLAYWRIGHT_FALLBACK` is reserved for browser-based fetching support.
+Set `ENABLE_PLAYWRIGHT_FALLBACK=true` to retry weak pages with headless Chromium
+after the normal `httpx` fetch. You can also enable it per request with
+`"use_playwright_fallback": true`.
 
 ## API Usage
 
@@ -157,6 +175,7 @@ curl -X POST http://127.0.0.1:8000/analyze \
     "max_pages": 5,
     "max_depth": 2,
     "force_refresh": false,
+    "use_playwright_fallback": false,
     "include_html_report": true
   }'
 ```
@@ -201,7 +220,7 @@ Final results include:
 - job metadata and generation timestamp
 - input and normalized URL
 - site-level summary counts
-- top priorities
+- top priorities with `priority_score` and `why_prioritized`
 - page-level grouped recommendations
 - missing-content recommendations
 - duplicate or overlap warnings
@@ -255,12 +274,14 @@ python -m compileall app tests
 - Ollama must be running locally for real LLM analysis.
 - The embedding model may download on first use.
 - Crawling is same-domain only.
-- JavaScript-heavy pages may produce limited content until Playwright fallback is
-  implemented.
+- JavaScript-heavy pages need optional Playwright fallback for best extraction.
+- Bot-protected, login-only, paywalled, or consent-heavy sites may still return
+  little usable content.
 
 ## Limitations
 
-- Browser-rendered pages require future Playwright integration for best results.
+- Browser fallback requires installing the optional Playwright dependency and
+  Chromium browser.
 - Analysis is limited to the submitted site; competitor comparison is outside
   the current scope.
 - Ollama is the supported LLM provider.
@@ -271,8 +292,7 @@ python -m compileall app tests
 
 ## Future Improvements
 
-- Optional Playwright fallback for JS-heavy websites.
 - HTML report theming or export bundles.
-- More page-type-aware prompt variants.
-- Richer site-level prioritization.
+- Sitemap and robots.txt-aware discovery.
+- More extraction tuning for consent-heavy pages.
 - Optional remote provider implementation behind the existing provider interface.

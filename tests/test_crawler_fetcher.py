@@ -3,6 +3,7 @@
 import httpx
 
 from app.crawler.fetcher import HttpxHtmlFetcher
+from app.crawler.playwright_fetcher import PlaywrightHtmlFetcher
 from app.models.crawl import FetchStatus
 
 
@@ -58,3 +59,20 @@ def test_fetcher_handles_non_200_status_with_mock_transport():
     assert not result.ok
     assert result.status == FetchStatus.HTTP_ERROR
     assert result.status_code == 404
+
+
+def test_playwright_fetcher_handles_missing_optional_dependency(monkeypatch):
+    def missing_import(name: str):
+        raise ImportError(name)
+
+    monkeypatch.setattr(
+        "app.crawler.playwright_fetcher.import_module",
+        missing_import,
+    )
+
+    fetcher = PlaywrightHtmlFetcher(timeout_seconds=1)
+    result = fetcher.fetch("https://example.com")
+
+    assert not result.ok
+    assert result.status == FetchStatus.NETWORK_ERROR
+    assert "Playwright is not installed" in (result.error or "")
