@@ -77,7 +77,7 @@ class PageAuditResult(BaseModel):
 
 
 class PageResultSkeleton(PageAuditResult):
-    """Backward-compatible alias for earlier scaffold result tests."""
+    """Backward-compatible alias for earlier result response imports."""
 
 
 class AuditResultResponse(BaseModel):

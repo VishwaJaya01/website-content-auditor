@@ -245,3 +245,23 @@ def test_analyzer_drops_empty_positive_and_generic_model_recommendations():
     assert "dropped_improvement_without_clear_issue" in result.warnings
     assert "dropped_improvement_missing_required_text" in result.warnings
     assert "dropped_generic_missing_content" in result.warnings
+
+
+def test_analyzer_does_not_leak_model_warning_objects():
+    provider = FakeProvider(
+        [
+            """
+            {
+              "improvements": [],
+              "missing_content": [],
+              "warnings": [
+                {"message": "Page has very few meaningful sections."}
+              ]
+            }
+            """
+        ]
+    )
+
+    result = ChunkAnalyzer(provider).analyze_chunk(_chunk())
+
+    assert result.warnings == []

@@ -1,4 +1,4 @@
-"""Initial HTTP routes for the scaffold API."""
+"""HTTP routes for the Website Content Auditor API."""
 
 from pathlib import Path
 
@@ -85,7 +85,7 @@ def analyze(
     responses={404: {"model": ApiErrorResponse}},
 )
 def get_job(job_id: str) -> JobResponse | JSONResponse:
-    """Return metadata for a scaffold audit job."""
+    """Return metadata for an audit job."""
 
     manager = JobManager()
     job = manager.get_job(job_id)
@@ -104,7 +104,7 @@ def get_job(job_id: str) -> JobResponse | JSONResponse:
     responses={404: {"model": ApiErrorResponse}},
 )
 def get_result(job_id: str) -> AuditResultResponse | JSONResponse:
-    """Return a stored audit result, or a scaffold response for an existing job."""
+    """Return a stored audit result, or an in-progress response."""
 
     settings = get_settings()
     manager = JobManager(settings)

@@ -1,4 +1,4 @@
-"""Synchronous job manager scaffold for future background analysis."""
+"""Synchronous job manager for audit lifecycle state."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class JobManager:
         self.db_path = self.settings.sqlite_database_path
 
     def create_job(self, request: AnalyzeRequest) -> JobResponse:
-        """Create a queued scaffold job for a valid analyze request."""
+        """Create a queued job for a valid analyze request."""
 
         input_url = str(request.url)
         normalized_url = self.normalize_request_url(input_url)

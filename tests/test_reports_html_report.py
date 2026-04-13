@@ -118,7 +118,7 @@ def _sample_result(job_id: str = "job-123") -> AuditResultResponse:
     )
 
 
-def test_render_html_report_contains_evaluator_sections():
+def test_render_html_report_contains_key_sections():
     html = render_html_report(_sample_result())
 
     assert "Website Content Auditor Report" in html

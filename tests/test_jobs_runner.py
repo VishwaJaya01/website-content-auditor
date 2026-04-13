@@ -237,12 +237,15 @@ def test_runner_marks_partial_when_some_pages_fail(tmp_path):
 
     result = runner.run(job_id)
     job = runner.manager.get_job(job_id)
+    cached_job = runner.manager.get_cached_job(_request())
 
     assert result is not None
     assert result.status == JobStatus.PARTIAL
     assert job is not None
     assert job.status == JobStatus.PARTIAL
     assert result.failed_pages
+    assert cached_job is not None
+    assert cached_job.job_id == job_id
 
 
 def test_runner_marks_failed_when_no_usable_content_exists(tmp_path):
@@ -286,3 +289,18 @@ def test_runner_marks_partial_when_llm_chunk_analysis_warns(tmp_path):
     assert result is not None
     assert result.status == JobStatus.PARTIAL
     assert "provider_error" in " ".join(result.warnings)
+    assert runner.manager.get_cached_job(_request()) is None
+
+
+def test_runner_does_not_mark_partial_for_output_quality_warnings_only(tmp_path):
+    runner, job_id = _runner(
+        tmp_path,
+        _discovery_success,
+        analyzer=FakeChunkAnalyzer(warning="dropped_missing_content_missing_required_text"),
+    )
+
+    result = runner.run(job_id)
+
+    assert result is not None
+    assert result.status == JobStatus.COMPLETED
+    assert "dropped_missing_content" in " ".join(result.warnings)

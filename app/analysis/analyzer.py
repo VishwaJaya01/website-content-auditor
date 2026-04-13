@@ -137,9 +137,7 @@ def _enrich_payload(payload: Any, chunk: ContentChunk) -> dict[str, Any]:
     payload.setdefault("improvements", [])
     payload.setdefault("missing_content", [])
     payload.setdefault("warnings", [])
-    if not isinstance(payload["warnings"], list):
-        payload["warnings"] = [str(payload["warnings"])]
-    warnings = [str(warning) for warning in payload["warnings"]]
+    warnings: list[str] = []
 
     improvements: list[dict[str, Any]] = []
     for item in payload.get("improvements", []):

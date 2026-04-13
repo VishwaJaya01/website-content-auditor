@@ -1,63 +1,64 @@
 # Website Content Auditor
 
-Website Content Auditor is a local-first FastAPI backend for auditing website
-content with a hybrid ML pipeline. It accepts a website URL, crawls meaningful
-same-domain pages, extracts visible content, chunks it by section, runs
-deterministic heuristics and similarity checks, analyzes chunks with a local
-Ollama LLM, and returns structured recommendations grouped by page.
+Website Content Auditor is a local-first FastAPI backend for analyzing website
+content and generating structured improvement recommendations. It crawls
+same-domain pages, extracts visible text, builds heading-aware sections, creates
+analysis chunks, runs heuristic and similarity checks, analyzes content with a
+local Ollama model, and returns page-grouped JSON results with an optional HTML
+report.
+
+## Quick Start
+
+1. Create a virtual environment and install dependencies.
+2. Copy `.env.example` to `.env`.
+3. Start Ollama and pull `gemma3:4b`.
+4. Run the API with `uvicorn app.main:app --reload`.
+5. Open `http://127.0.0.1:8000/docs`.
+
+For a fast smoke test, start with `https://example.com/`. For richer structured
+content, try `https://docs.python.org/3/` or `https://fastapi.tiangolo.com/`.
 
 ## Screenshots
 
 ### Health Check
 
-The API exposes a lightweight health endpoint for quick service and storage
-verification.
-
 ![Health check response](docs/images/health-check.png)
 
 ### Accepted Analysis Job
-
-`POST /analyze` returns quickly with a `job_id`, status URL, result URL, and
-cache indicator while the audit runs in the background.
 
 ![Analyze response with job id](docs/images/analyze-response.png)
 
 ### Structured JSON Result
 
-Completed audits return grouped page-level JSON with summary counts,
-recommendations, warnings, and report metadata.
-
 ![Completed audit JSON result](docs/images/result-json.png)
 
 ### Static HTML Report
 
-Each completed or partial audit can also be reviewed as a static browser report.
-
 ![Generated HTML audit report](docs/images/html-report.png)
 
-## Core Features
+## Features
 
-- FastAPI JSON API with job-based analysis flow.
-- Same-domain URL normalization, filtering, prioritization, and HTML fetching.
+- FastAPI API with job-based analysis flow.
+- Same-domain crawling with URL normalization, filtering, and prioritization.
+- Safe HTML fetching with `httpx`.
 - Optional Playwright fallback for JavaScript-rendered or app-shell pages.
-- Boilerplate-aware visible text extraction with heading-aware sections.
-- Section-aware chunking for later LLM analysis.
-- Rule-based heuristic signals for thin content, weak CTAs, vague wording,
-  weak structure, trust gaps, and repetition.
-- Local sentence-transformers embeddings for similarity retrieval and
-  cross-page duplicate or overlap detection.
-- Local Ollama provider, defaulting to `gemma3:4b`.
-- Page-type-aware prompt focus for homepage, pricing, product/service, docs,
-  FAQ, contact, about, blog, and generic pages.
-- Strict Pydantic schemas for chunk-level LLM recommendations.
-- JSON parsing, extraction, and bounded repair for imperfect model output.
-- SQLite-backed jobs, results, and cache entries.
-- Priority scoring for the most important site-level findings.
-- Static HTML report generation for completed or partial audits.
+- Boilerplate-aware visible text extraction.
+- Heading-aware section building.
+- Section-aware chunking for local LLM analysis.
+- Rule-based heuristic signals for thin content, weak CTAs, weak structure,
+  vague wording, trust gaps, long paragraphs, and repetition.
+- Local sentence-transformers embeddings for similarity retrieval.
+- Cross-page duplicate and overlap detection.
+- Local Ollama LLM provider, defaulting to `gemma3:4b`.
+- Page-type-aware prompts for homepage, pricing, product/service, docs, FAQ,
+  contact, about, blog, and generic pages.
+- Strict Pydantic schemas for recommendations and results.
+- JSON parsing, validation, bounded repair, and output quality guards.
+- SQLite-backed jobs, result persistence, and cache entries.
+- Priority scoring with `priority_score` and `why_prioritized`.
+- Static HTML report generation with Jinja2.
 
 ## Architecture
-
-The app is a modular monolith under `app/`:
 
 ```text
 app/
@@ -69,34 +70,49 @@ app/
 ├── providers/    # LLM provider interface and Ollama implementation
 ├── reports/      # static HTML report rendering
 ├── storage/      # SQLite initialization and repository helpers
-└── utils/        # shared text/logging utilities
+└── utils/        # shared text and logging utilities
 ```
 
 Pipeline flow:
 
 1. `POST /analyze` validates the request and creates or reuses a job.
-2. The background runner checks cache, crawls same-domain pages, and fetches HTML.
-   If enabled, Playwright retries pages where normal HTML extraction is weak.
-3. Extracted pages are converted into heading-aware sections.
-4. Sections become analysis-ready chunks.
-5. Heuristics and embeddings produce supporting signals and duplicate findings.
-6. Ollama analyzes each chunk with page-type-aware prompt guidance and returns
-   structured recommendations.
-7. Aggregation deduplicates findings, groups them by page, and ranks top
+2. The runner checks cache, crawls same-domain pages, and fetches HTML.
+3. If browser fallback is enabled, weak or failed raw HTML pages are retried
+   with Playwright.
+4. Fetched HTML is converted into visible text and heading-aware sections.
+5. Sections are split into analysis-ready chunks.
+6. Heuristics and embeddings generate supporting signals and duplicate findings.
+7. Ollama analyzes each chunk with page-type-aware prompt guidance.
+8. Aggregation deduplicates findings, groups results by page, and ranks top
    priorities.
-8. The final JSON result is saved in SQLite.
-9. A static HTML report is generated when enabled or requested.
+9. The final JSON result is saved in SQLite.
+10. A static HTML report is generated when enabled or requested.
 
 ## Requirements
 
 - Python 3.11+
-- Ollama running locally
-- `gemma3:4b` pulled in Ollama
-- Internet access the first time `sentence-transformers/all-MiniLM-L6-v2` is
-  downloaded, unless the model is already cached locally
-- Optional: Playwright plus Chromium for browser-rendered fallback
+- Ollama installed and running locally
+- Ollama model pulled locally, default: `gemma3:4b`
+- Internet access for the first sentence-transformers model download, unless
+  the embedding model is already cached
+- Optional: Playwright and Chromium for browser-rendered pages
+
+First-time setup can take longer because local models, embedding dependencies,
+and ML packages may need to be downloaded. Playwright is optional and adds a
+Chromium browser installation step only when browser fallback is needed.
 
 ## Setup
+
+### Windows PowerShell
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+copy .env.example .env
+```
+
+### macOS / Linux / WSL
 
 ```bash
 python -m venv .venv
@@ -105,59 +121,90 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Install and prepare Ollama:
+## Ollama Setup
+
+Install Ollama, then pull the default model:
 
 ```bash
 ollama pull gemma3:4b
+```
+
+Start Ollama:
+
+```bash
 ollama serve
 ```
 
-Optional browser fallback for JavaScript-heavy sites:
+For lower-resource machines, set a smaller model in your private `.env`:
+
+```env
+OLLAMA_MODEL="qwen2.5:1.5b"
+```
+
+or:
+
+```env
+OLLAMA_MODEL="qwen2.5:0.5b"
+```
+
+If local generation times out, increase this value in `.env`:
+
+```env
+REQUEST_TIMEOUT_SECONDS=120
+```
+
+or:
+
+```env
+REQUEST_TIMEOUT_SECONDS=180
+```
+
+## Optional Playwright Fallback
+
+The default crawler uses `httpx` first. Playwright is optional and only needed
+for JavaScript-heavy pages where the raw HTML is empty or weak.
+
+Install the browser extra:
 
 ```bash
-pip install -e ".[browser]"
+pip install -e ".[dev,browser]"
+```
+
+Install Chromium:
+
+```bash
 playwright install chromium
 ```
 
-In another terminal, run the API:
+Enable fallback globally in `.env`:
+
+```env
+ENABLE_PLAYWRIGHT_FALLBACK=true
+```
+
+Or enable it per request:
+
+```json
+"use_playwright_fallback": true
+```
+
+Keep `.env.example` conservative with:
+
+```env
+ENABLE_PLAYWRIGHT_FALLBACK=false
+```
+
+## Run The API
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-By default, SQLite data is stored at `data/auditor.db` and generated reports are
-stored under `reports/`. Both are ignored by git.
+Interactive API docs:
 
-## Environment
-
-Common settings in `.env`:
-
-```env
-SQLITE_DATABASE_PATH="data/auditor.db"
-OLLAMA_BASE_URL="http://localhost:11434"
-OLLAMA_MODEL="gemma3:4b"
-EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
-APP_DEBUG=false
-REQUEST_TIMEOUT_SECONDS=60
-DEFAULT_MAX_PAGES=8
-DEFAULT_MAX_DEPTH=2
-CACHE_TTL_HOURS=24
-ENABLE_PLAYWRIGHT_FALLBACK=false
-ENABLE_HTML_REPORTS=true
-REPORTS_DIRECTORY="reports"
+```text
+http://127.0.0.1:8000/docs
 ```
-
-For low-resource machines, you can set a smaller local model in your private
-`.env`, for example `OLLAMA_MODEL="qwen2.5:1.5b"` or
-`OLLAMA_MODEL="qwen2.5:0.5b"`. If Ollama is slow, increase
-`REQUEST_TIMEOUT_SECONDS` to `120` or `180` locally. Keep `.env.example` as the
-portable configuration template.
-
-Set `ENABLE_PLAYWRIGHT_FALLBACK=true` to retry weak pages with headless Chromium
-after the normal `httpx` fetch. You can also enable it per request with
-`"use_playwright_fallback": true`.
-
-## API Usage
 
 Health check:
 
@@ -165,7 +212,15 @@ Health check:
 curl http://127.0.0.1:8000/health
 ```
 
-Start an audit:
+PowerShell:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/health"
+```
+
+## API Workflow
+
+### Start An Audit
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze \
@@ -180,7 +235,26 @@ curl -X POST http://127.0.0.1:8000/analyze \
   }'
 ```
 
-The response includes a `job_id` plus status and result URLs:
+PowerShell:
+
+```powershell
+$body = @{
+  url = "https://example.com"
+  max_pages = 5
+  max_depth = 2
+  force_refresh = $false
+  use_playwright_fallback = $false
+  include_html_report = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/analyze" `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+Response:
 
 ```json
 {
@@ -192,60 +266,173 @@ The response includes a `job_id` plus status and result URLs:
 }
 ```
 
-Check job status:
+### Check Job Status
 
 ```bash
 curl http://127.0.0.1:8000/jobs/<job_id>
 ```
 
-Fetch JSON results:
+PowerShell:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/jobs/<job_id>"
+```
+
+### Fetch JSON Results
 
 ```bash
 curl http://127.0.0.1:8000/results/<job_id>
 ```
 
-Fetch the HTML report:
+PowerShell:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/results/<job_id>"
+```
+
+### Fetch HTML Report
 
 ```bash
 curl http://127.0.0.1:8000/reports/<job_id> -o audit-report.html
 ```
 
-Open `audit-report.html` in a browser, or open the saved file listed in
-`html_report_path` from the JSON result.
+PowerShell:
 
-## Output Shape
+```powershell
+Invoke-WebRequest `
+  -Uri "http://127.0.0.1:8000/reports/<job_id>" `
+  -OutFile "audit-report.html"
+```
+
+Open `audit-report.html` in a browser.
+
+## Output
 
 Final results include:
 
-- job metadata and generation timestamp
-- input and normalized URL
+- job metadata and generated timestamp
+- input URL and normalized URL
 - site-level summary counts
 - top priorities with `priority_score` and `why_prioritized`
-- page-level grouped recommendations
-- missing-content recommendations
-- duplicate or overlap warnings
+- page-level grouped improvement recommendations
+- page-level grouped missing-content recommendations
+- duplicate and overlap warnings
 - heuristic signal summaries
-- crawl, extraction, embedding, or LLM warnings
+- failed pages and warning messages
 - optional `html_report_path` and `html_report_url`
 
-## Caching Behavior
+Improvement recommendations include:
 
-The cache key is derived from the normalized URL and important request/runtime
-configuration such as crawl limits, Ollama model, embedding model, and pipeline
-version. If a valid cached result exists and `force_refresh` is false,
-`POST /analyze` returns the cached job instead of reprocessing the site.
+- category
+- page URL
+- section metadata
+- issue
+- suggested change
+- optional example text
+- reason
+- severity
+- confidence
+- evidence snippet
 
-Cache entries expire after `CACHE_TTL_HOURS`.
+Missing-content recommendations include:
+
+- page URL
+- section metadata or recommended location
+- missing content
+- suggestion or outline
+- reason
+- priority
+- confidence
+
+## Caching
+
+The cache key is derived from the normalized URL and important configuration:
+
+- crawl limits
+- Playwright fallback flag
+- HTML report flag
+- Ollama model
+- embedding model
+- pipeline version
+
+If a valid cache entry exists and `force_refresh` is false, `POST /analyze`
+returns the cached job instead of reprocessing the website.
+
+Cache entries expire after:
+
+```env
+CACHE_TTL_HOURS=24
+```
+
+Use `force_refresh=true` to bypass cache for a request.
 
 ## Reports
 
-HTML reports are generated for completed and partial jobs when:
+HTML reports are generated for completed and partial jobs when either condition
+is true:
 
-- `include_html_report` is true on the request, or
-- `ENABLE_HTML_REPORTS=true` in environment settings
+- request body contains `"include_html_report": true`
+- `.env` contains `ENABLE_HTML_REPORTS=true`
 
-Reports are static HTML files rendered with Jinja2. They do not require
-JavaScript or a frontend build step.
+Reports are written to:
+
+```text
+reports/
+```
+
+The JSON result includes:
+
+```json
+{
+  "html_report_path": "reports/<job_id>.html",
+  "html_report_url": "/reports/<job_id>"
+}
+```
+
+## Recommended Demo Flow
+
+1. Start with `https://example.com/` for a quick smoke test.
+2. Try `https://docs.python.org/3/` or `https://fastapi.tiangolo.com/` for
+   richer structured content.
+3. Use a blocked, invalid, or inaccessible site to verify graceful failure
+   handling.
+
+Additional URLs that are useful for local testing:
+
+```text
+https://screenrant.com/
+https://www.reasonspodcast.com/
+```
+
+Some large media, gaming, paywalled, or heavily protected sites may block both
+`httpx` and Playwright. In that case the job should fail gracefully with a clear
+job state and error message.
+
+## Reset Local State
+
+Stop the API first with `Ctrl+C`.
+
+Windows PowerShell:
+
+```powershell
+Remove-Item -Recurse -Force .\data -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force .\reports -ErrorAction SilentlyContinue
+Remove-Item -Force .\*-report.html -ErrorAction SilentlyContinue
+```
+
+macOS / Linux / WSL:
+
+```bash
+rm -rf data reports ./*-report.html
+```
+
+Restart the API:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+SQLite tables are recreated automatically on startup.
 
 ## Development
 
@@ -267,32 +454,83 @@ Compile-check imports:
 python -m compileall app tests
 ```
 
+## Environment Variables
+
+Common `.env` values:
+
+```env
+APP_NAME="Website Content Auditor"
+APP_VERSION="0.1.0"
+APP_DEBUG=false
+SQLITE_DATABASE_PATH="data/auditor.db"
+OLLAMA_BASE_URL="http://localhost:11434"
+OLLAMA_MODEL="gemma3:4b"
+EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+REQUEST_TIMEOUT_SECONDS=60
+DEFAULT_MAX_PAGES=8
+DEFAULT_MAX_DEPTH=2
+CACHE_TTL_HOURS=24
+ENABLE_PLAYWRIGHT_FALLBACK=false
+ENABLE_HTML_REPORTS=true
+REPORTS_DIRECTORY="reports"
+```
+
+Local `.env` files, SQLite data, cache files, and generated reports should not
+be committed.
+
+## Troubleshooting
+
+### Ollama Request Timed Out
+
+Use a smaller local model or increase `REQUEST_TIMEOUT_SECONDS` in `.env`.
+
+### No Accessible Pages With Extractable HTML Content
+
+Common causes:
+
+- invalid or unreachable URL
+- bot protection
+- paywall or login wall
+- regional blocking
+- JavaScript-rendered shell without Playwright fallback
+- consent or anti-automation layer
+
+Enable Playwright fallback for JS-heavy pages. For bot-protected sites, use a
+different public URL or provide accessible page content through a future
+HTML-input flow.
+
+### Cached Result Returned
+
+Set `force_refresh=true` in the request or delete the local `data/` directory.
+
+### PowerShell JSON Issues With `curl`
+
+Use `Invoke-RestMethod` with `ConvertTo-Json`, or use `curl.exe` with properly
+escaped JSON. The PowerShell examples above avoid quoting problems.
+
 ## Assumptions
 
-- The system is intended for small to moderate websites, not full enterprise
-  crawls.
-- Ollama must be running locally for real LLM analysis.
-- The embedding model may download on first use.
 - Crawling is same-domain only.
-- JavaScript-heavy pages need optional Playwright fallback for best extraction.
-- Bot-protected, login-only, paywalled, or consent-heavy sites may still return
-  little usable content.
+- The system is intended for small to moderate websites.
+- Ollama must be running locally for LLM-backed recommendations.
+- Embeddings are generated locally with sentence-transformers.
+- Similarity retrieval runs in memory.
+- Playwright fallback is optional.
 
 ## Limitations
 
-- Browser fallback requires installing the optional Playwright dependency and
-  Chromium browser.
-- Analysis is limited to the submitted site; competitor comparison is outside
-  the current scope.
-- Ollama is the supported LLM provider.
-- Similarity search runs in memory without a vector database.
-- LLM output quality depends on the local model and source page quality.
-- The current background execution uses FastAPI background tasks, which is
-  appropriate for local/single-process use but not a production queue.
+- Bot-protected, login-only, paywalled, or consent-heavy sites may return little
+  or no usable content.
+- Playwright fallback requires optional browser dependencies.
+- The current job runner uses FastAPI background tasks, not a distributed queue.
+- Similarity search does not use a vector database.
+- LLM output quality depends on the selected local model and source page quality.
+- Analysis is limited to the submitted site.
 
 ## Future Improvements
 
-- HTML report theming or export bundles.
 - Sitemap and robots.txt-aware discovery.
-- More extraction tuning for consent-heavy pages.
-- Optional remote provider implementation behind the existing provider interface.
+- User-provided HTML analysis endpoint.
+- Browser session reuse for faster Playwright fallback.
+- Report export bundles.
+- Optional remote provider behind the existing provider interface.

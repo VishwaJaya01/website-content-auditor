@@ -1,4 +1,4 @@
-"""Small SQLite initialization layer for the scaffold application."""
+"""Small SQLite initialization layer for the application."""
 
 import sqlite3
 from pathlib import Path
@@ -14,7 +14,7 @@ def get_connection(db_path: str) -> sqlite3.Connection:
 
 
 def init_db(db_path: str) -> None:
-    """Initialize the minimal database schema used by the scaffold API."""
+    """Initialize the database schema used by the API."""
 
     database_path = Path(db_path)
     database_path.parent.mkdir(parents=True, exist_ok=True)

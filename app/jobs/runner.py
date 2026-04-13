@@ -148,12 +148,17 @@ class AuditPipelineRunner:
                 for result in chunk_results
                 for warning in result.warnings
             ]
+            critical_llm_warnings = [
+                warning
+                for warning in llm_warnings
+                if _is_critical_llm_warning(warning)
+            ]
             warnings.extend(llm_warnings)
             self.manager.update_job_status(job_id, JobStatus.RUNNING, progress=0.9)
 
             final_status = (
                 JobStatus.PARTIAL
-                if failed_pages or embedding_warnings or llm_warnings
+                if failed_pages or embedding_warnings or critical_llm_warnings
                 else JobStatus.COMPLETED
             )
             result = aggregate_audit_result(
@@ -185,7 +190,7 @@ class AuditPipelineRunner:
                     job_id,
                     "Audit completed with partial results.",
                 )
-                if partial_job is not None:
+                if partial_job is not None and not critical_llm_warnings:
                     self.manager.save_cache_entry(partial_job)
             return result
         except Exception as exc:
@@ -459,3 +464,14 @@ def run_analysis_job(job_id: str) -> AuditResultResponse | None:
     """Default background task entrypoint used by the API."""
 
     return AuditPipelineRunner().run(job_id)
+
+
+def _is_critical_llm_warning(warning: str) -> bool:
+    normalized = warning.strip().lower()
+    return normalized.startswith(
+        (
+            "provider_error:",
+            "json_repair_provider_error:",
+            "invalid_llm_json:",
+        )
+    )

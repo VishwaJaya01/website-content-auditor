@@ -204,11 +204,18 @@ def build_json_repair_prompt(
 def _classify_chunk_page_type(chunk: ContentChunk) -> str:
     parsed = urlsplit(chunk.page_url)
     path = parsed.path.strip("/").lower()
+    hostname = parsed.hostname or ""
     path_segments = {segment for segment in path.split("/") if segment}
     fallback_haystack = " ".join(
         value for value in [chunk.page_title, chunk.page_h1] if value
     ).lower()
 
+    if (
+        hostname.startswith("docs.")
+        or "documentation" in fallback_haystack
+        or "developer docs" in fallback_haystack
+    ):
+        return "docs"
     if path in {"", "home", "index"}:
         return "homepage"
     if "pricing" in path_segments or "plans" in path_segments:

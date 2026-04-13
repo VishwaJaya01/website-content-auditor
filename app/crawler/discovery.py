@@ -85,11 +85,22 @@ def discover_site(
     frontier: list[tuple[int, int, int, DiscoveredUrl]] = []
     insertion_order = count()
 
-    def enqueue(url: str, *, source_url: str | None, depth: int) -> None:
+    def enqueue(
+        url: str,
+        *,
+        source_url: str | None,
+        depth: int,
+        priority_override: int | None = None,
+        reason_override: str | None = None,
+    ) -> None:
         if url in seen_urls or depth > effective_max_depth:
             return
         seen_urls.add(url)
         priority_score, priority_reason = score_url_priority(url, site_root_url)
+        if priority_override is not None:
+            priority_score = priority_override
+        if reason_override is not None:
+            priority_reason = reason_override
         candidate = DiscoveredUrl(
             url=url,
             source_url=source_url,
@@ -102,9 +113,15 @@ def discover_site(
             (depth, -priority_score, next(insertion_order), candidate),
         )
 
-    enqueue(site_root_url, source_url=None, depth=0)
     if normalized_start_url != site_root_url:
-        enqueue(normalized_start_url, source_url=None, depth=0)
+        enqueue(
+            normalized_start_url,
+            source_url=None,
+            depth=0,
+            priority_override=HOMEPAGE_PRIORITY + 1,
+            reason_override="submitted_start_url",
+        )
+    enqueue(site_root_url, source_url=None, depth=0)
 
     while frontier and len(discovered_urls) < effective_max_pages:
         _, _, _, candidate = heappop(frontier)

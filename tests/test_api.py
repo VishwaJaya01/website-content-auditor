@@ -1,4 +1,4 @@
-"""Smoke tests for the initial FastAPI scaffold."""
+"""Smoke tests for the FastAPI application."""
 
 from fastapi.testclient import TestClient
 
@@ -9,7 +9,7 @@ from app.models.results import AuditResultResponse
 from app.storage import repositories
 
 
-def test_health_and_scaffold_job_flow(tmp_path, monkeypatch):
+def test_health_and_job_flow(tmp_path, monkeypatch):
     monkeypatch.setenv("SQLITE_DATABASE_PATH", str(tmp_path / "auditor.db"))
     get_settings.cache_clear()
     monkeypatch.setattr("app.api.routes.run_analysis_job", lambda job_id: None)

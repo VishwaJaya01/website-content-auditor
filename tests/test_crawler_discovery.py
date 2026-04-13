@@ -71,6 +71,30 @@ def test_discover_site_keeps_homepage_first_and_prioritizes_content_pages():
     )
 
 
+def test_discover_site_fetches_submitted_non_root_url_first():
+    pages = {
+        "https://docs.example.com/guide": """
+            <html><body><a href="/">Docs home</a></body></html>
+        """,
+        "https://docs.example.com/": """
+            <html><body><a href="/api">API</a></body></html>
+        """,
+    }
+    fetcher = FakeFetcher(pages)
+
+    result = discover_site(
+        "https://docs.example.com/guide",
+        max_pages=1,
+        max_depth=0,
+        fetcher=fetcher,
+    )
+
+    discovered = [item.url for item in result.discovered_urls]
+
+    assert discovered == ["https://docs.example.com/guide"]
+    assert fetcher.fetched_urls == ["https://docs.example.com/guide"]
+
+
 def test_discover_site_respects_max_depth():
     pages = {
         "https://example.com/": """
@@ -93,4 +117,3 @@ def test_discover_site_respects_max_depth():
 
     assert "https://example.com/about" in discovered
     assert "https://example.com/contact" not in discovered
-

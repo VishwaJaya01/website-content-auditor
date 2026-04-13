@@ -145,6 +145,23 @@ def test_heuristics_emit_missing_trust_signal_for_commercial_page():
     assert "missing_trust_indicators" in signal_types
 
 
+def test_heuristics_do_not_treat_documentation_homepage_as_commercial():
+    text = (
+        "Python documentation includes library references, language guides, "
+        "tutorials, and setup instructions for developers using Python."
+    )
+    page = _page(
+        url="https://docs.python.org/",
+        title="3.14.4 Documentation",
+        h1="Python Documentation",
+        sections=[_section("section-000", "Documentation", text)],
+    )
+
+    signal_types = _signal_types(page)
+
+    assert "missing_trust_indicators" not in signal_types
+
+
 def test_heuristics_accept_precomputed_chunks_for_chunk_level_signals():
     very_long_word_block = " ".join(["analysis"] * 500)
     page = _page(
@@ -157,4 +174,3 @@ def test_heuristics_accept_precomputed_chunks_for_chunk_level_signals():
     assert summary.page_url == page.url
     assert "oversized_chunk" not in summary.signal_counts
     assert summary.signal_counts
-

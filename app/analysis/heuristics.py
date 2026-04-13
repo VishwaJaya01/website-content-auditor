@@ -435,8 +435,6 @@ def _looks_commercial(page: ExtractedPage, full_text: str) -> bool:
     parsed = urlsplit(page.url)
     path = parsed.path.strip("/").lower()
     path_terms = {segment for segment in path.split("/") if segment}
-    if path in {"", "home", "index"}:
-        return True
     if path_terms.intersection(COMMERCIAL_PATH_TERMS):
         return True
 

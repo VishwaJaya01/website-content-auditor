@@ -126,11 +126,18 @@ def classify_page_type(page: ExtractedPage) -> str:
 
     parsed = urlsplit(page.url)
     path = parsed.path.strip("/").lower()
+    hostname = parsed.hostname or ""
     path_segments = {segment for segment in path.split("/") if segment}
     fallback_haystack = " ".join(
         value for value in [page.title, page.h1] if value
     ).lower()
 
+    if (
+        hostname.startswith("docs.")
+        or "documentation" in fallback_haystack
+        or "developer docs" in fallback_haystack
+    ):
+        return "docs"
     if path in {"", "home", "index"}:
         return "homepage"
     if "pricing" in path_segments or "plans" in path_segments:

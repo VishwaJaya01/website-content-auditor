@@ -129,3 +129,15 @@ def test_classify_page_type_uses_url_title_and_h1():
     assert classify_page_type(_page("https://example.com/services")) == (
         "services_product"
     )
+    assert (
+        classify_page_type(
+            ExtractedPage(
+                url="https://docs.python.org/",
+                title="3.14.4 Documentation",
+                h1="Python Documentation",
+                text_char_count=100,
+                sections=[],
+            )
+        )
+        == "docs"
+    )
