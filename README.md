@@ -10,6 +10,35 @@ The project is designed as an internship-quality backend submission: small
 enough to run locally, but structured like a production-minded content analysis
 system instead of a single "scrape text and prompt an LLM" script.
 
+## Demo Screenshots
+
+### Health Check
+
+The API exposes a lightweight health endpoint for quick service and storage
+verification.
+
+![Health check response](docs/images/health-check.png)
+
+### Accepted Analysis Job
+
+`POST /analyze` returns quickly with a `job_id`, status URL, result URL, and
+cache indicator while the audit runs in the background.
+
+![Analyze response with job id](docs/images/analyze-response.png)
+
+### Structured JSON Result
+
+Completed audits return grouped page-level JSON with summary counts,
+recommendations, warnings, and report metadata.
+
+![Completed audit JSON result](docs/images/result-json.png)
+
+### Static HTML Report
+
+Each completed or partial audit can also be reviewed as a static browser report.
+
+![Generated HTML audit report](docs/images/html-report.png)
+
 ## Core Features
 
 - FastAPI JSON API with job-based analysis flow.
@@ -97,12 +126,19 @@ SQLITE_DATABASE_PATH="data/auditor.db"
 OLLAMA_BASE_URL="http://localhost:11434"
 OLLAMA_MODEL="gemma3:4b"
 EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+REQUEST_TIMEOUT_SECONDS=60
 DEFAULT_MAX_PAGES=8
 DEFAULT_MAX_DEPTH=2
 CACHE_TTL_HOURS=24
 ENABLE_HTML_REPORTS=true
 REPORTS_DIRECTORY="reports"
 ```
+
+For low-resource machines, you can set a smaller local model in your private
+`.env`, for example `OLLAMA_MODEL="qwen2.5:1.5b"` or
+`OLLAMA_MODEL="qwen2.5:0.5b"`. If Ollama is slow, increase
+`REQUEST_TIMEOUT_SECONDS` to `120` or `180` locally. Keep `.env.example` as the
+portable evaluator-facing template.
 
 `ENABLE_PLAYWRIGHT_FALLBACK` is present for future expansion, but Playwright is
 not implemented in this version.

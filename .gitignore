@@ -21,6 +21,7 @@ env/
 # Local runtime data
 /data/
 /reports/
+*-report.html
 *.db
 *.sqlite
 *.sqlite3
