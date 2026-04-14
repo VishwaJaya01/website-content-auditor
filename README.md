@@ -15,8 +15,9 @@ report.
 4. Run the API with `uvicorn app.main:app --reload`.
 5. Open `http://127.0.0.1:8000/docs`.
 
-For a fast smoke test, start with `https://example.com/`. For richer structured
-content, try `https://docs.python.org/3/` or `https://fastapi.tiangolo.com/`.
+For a fast smoke test, start with `https://www.python.org/`. For richer
+structured content, try `https://fastapi.tiangolo.com/` or
+`https://docs.python.org/3/`.
 
 ## Screenshots
 
@@ -226,7 +227,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/health"
 curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://example.com",
+    "url": "https://www.python.org/",
     "max_pages": 5,
     "max_depth": 2,
     "force_refresh": false,
@@ -239,7 +240,7 @@ PowerShell:
 
 ```powershell
 $body = @{
-  url = "https://example.com"
+  url = "https://www.python.org/"
   max_pages = 5
   max_depth = 2
   force_refresh = $false
@@ -391,22 +392,39 @@ The JSON result includes:
 
 ## Recommended Demo Flow
 
-1. Start with `https://example.com/` for a quick smoke test.
-2. Try `https://docs.python.org/3/` or `https://fastapi.tiangolo.com/` for
-   richer structured content.
-3. Use a blocked, invalid, or inaccessible site to verify graceful failure
-   handling.
+Start with one page and a shallow depth for quick local runs:
 
-Additional URLs that are useful for local testing:
-
-```text
-https://screenrant.com/
-https://www.reasonspodcast.com/
+```json
+{
+  "url": "https://www.python.org/",
+  "max_pages": 1,
+  "max_depth": 1,
+  "force_refresh": true,
+  "include_html_report": true
+}
 ```
 
+Known useful demo targets:
+
+| Use case | URL | Notes |
+| --- | --- | --- |
+| Fast smoke test | `https://www.python.org/` | Good first run with moderate content. |
+| Rich docs/help page | `https://fastapi.tiangolo.com/` | Strong structured content for extraction and sectioning. |
+| Documentation page | `https://docs.python.org/3/` | Useful for docs-style page classification. |
+| Product documentation | `https://flask.palletsprojects.com/` | Good technical content with headings. |
+| Business landing page | `https://www.basecamp.com/` | Rich report target; may take longer with local LLMs. |
+| SaaS landing page | `https://www.linear.app/` | Good modern landing-page example. |
+| Product/brand page | `https://www.mozilla.org/en-US/firefox/` | Good product messaging example. |
+| Organization/product site | `https://www.postgresql.org/` | Good content-heavy public site. |
+| Lightweight content site | `https://www.reasonspodcast.com/` | Useful smaller-site example. |
+
+Use the same URL twice with `force_refresh=false` to verify cache reuse. Use an
+invalid, blocked, or inaccessible URL to verify graceful failure handling.
+
 Some large media, gaming, paywalled, or heavily protected sites may block both
-`httpx` and Playwright. In that case the job should fail gracefully with a clear
-job state and error message.
+`httpx` and Playwright. Examples include some news, gaming, streaming, and
+bot-protected brand sites. In that case the job should fail gracefully with a
+clear job state and error message.
 
 ## Reset Local State
 
